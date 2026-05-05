@@ -3,7 +3,7 @@ id: slice-2.demo-data
 type: build-slice
 domain: bca.content + bca.frontend.phase-1
 agreement: bca.build-roadmap
-state: forming
+state: stable
 density: L2.5
 ---
 
@@ -279,4 +279,5 @@ topology  defined → in-progress → shipped
 ```
 2026-05-05  coordinator(opus)  seeded · refine after slice-1 ships
 2026-05-05  coordinator(opus)  refined: scope sharpened · 12 doc content specs written · RAG + Draft Reply strategies resolved · builder prompt embedded · state seed→forming
+2026-05-05  builder(claude-sonnet-4-6)  slice-2 shipped · 12 synthetic docs · DocType extended · qa.ts + replies.ts · /app/ask chat mock · Draft Reply panel · 0 build errors · state forming→stable
 ```

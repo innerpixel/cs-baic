@@ -17,8 +17,8 @@ density: L2.5
 
 ```
 phase      1
-current    slice-2.demo-data  (forming · ready for builder)
-next       slice-3.backend
+current    slice-3.backend
+next       slice-4.evaluation-harness
 blocked    —
 ```
 
@@ -44,7 +44,7 @@ Coordinator owns sequence and prompts. Builder owns code.
 
 ```
 slice-1  homepage + inbox mock              stable     gravity HIGH
-slice-2  demo-data + ask + reply mocks      forming    gravity HIGH
+slice-2  demo-data + ask + reply mocks      stable     gravity HIGH
 slice-3  fastapi backend + 1 real workflow  seed
 slice-4  evaluation harness                 (not yet seeded)
 slice-5  pilot-ready polish                 (not yet seeded)
@@ -101,4 +101,5 @@ slice-5  pilot-ready polish                 (not yet seeded)
 2026-05-05  builder(claude-sonnet-4-6)  slice-1 shipped · SvelteKit scaffold · / /demo /app/inbox · static inbox data · 0 build errors · phase 0→1 complete
 2026-05-05  user                       reference docs moved root → codocz/  (dev-internal vs user-facing separation)
 2026-05-05  coordinator(opus)          slice-1 verified · slice-2 refined seed→forming · CLAUDE.md doc map updated to codocz/ paths · builder prompt embedded in slice-2 codon
+2026-05-05  builder(claude-sonnet-4-6)  slice-2 shipped · 16 docs total · DocType extended · /app/ask mock · Draft Reply panel · nav updated · 0 build errors · slice-2 stable · current→slice-3
 ```
