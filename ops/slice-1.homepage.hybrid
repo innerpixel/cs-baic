@@ -1,0 +1,123 @@
+---
+id: slice-1.homepage
+type: build-slice
+domain: bca.frontend.phase-1
+agreement: bca.build-roadmap
+state: stable
+density: L2.5
+---
+
+# Slice 1 · Homepage + AI Inbox Mock
+
+*Static SvelteKit · synthetic data · no backend · 3-min walkthrough*
+
+---
+
+## Why
+
+Phase 0 → Phase 1 transition needs one visible artifact.
+Until a stranger can land → walk → leave with the product clear, all docs are vapor.
+This slice is the first thing showable to a Romanian SME owner.
+
+---
+
+## Scope
+
+```
+IN     git init at repo root
+       SvelteKit + Svelte 5 + TS + Tailwind scaffold
+       routes:  /          home (marketing)
+                /demo      demo workflow page
+                /app/inbox mock AI Inbox
+       static JSON: 4 demo docs from project_control_pack.md §23.3
+                    invoice_lumina_design_2026_0041
+                    email_accountant_missing_docs_april
+                    email_client_apartament_bucuresti
+                    contract_supplier_lumina_design
+       components:  Sidebar · Inbox list · Doc card · Doc detail panel
+                    Approve button states · Audit timeline (mock)
+       minimal README pointing at docs + ops/
+
+OUT    backend · real AI · file upload · auth · DB
+       Ask My Company chat · Draft Reply panel
+       remaining 12 demo documents
+       a11y · i18n · animations
+```
+
+---
+
+## Acceptance
+
+```
+stranger lands at / → reads hero in 10s → clicks to /demo
+reads workflow story → clicks to /app/inbox
+sees 4 analyzed cards → opens one → sees fields + suggested action + Approve button
+total under 3 min · no broken states · feels real
+```
+
+---
+
+## Constraints inherited
+
+See `ops/rules.constraints.hybrid` (gravity HIGH · anchored).
+
+---
+
+## Builder prompt
+
+Copy this into a fresh IDE session at `/home/innerpixel/dev/sme-companion`:
+
+```text
+Read CLAUDE.md, ops/project.state.hybrid, ops/rules.constraints.hybrid, and ops/slice-1.homepage.hybrid.
+
+You are the builder for slice-1. Coordinator (opus) has defined scope; you execute.
+
+Tasks:
+1. git init at repo root.
+2. Scaffold SvelteKit (Svelte 5 + TypeScript + Tailwind) directly at the repo root. We will restructure into apps/web later when the FastAPI backend joins (slice-3); flat is fine for now.
+3. Build / using blueprint §6 Page 1 structure and gtm-pack §3 messaging.
+4. Build /demo using blueprint §6 Page 3 structure (the demo workflow page).
+5. Build /app/inbox as a mock AI Inbox using static JSON. Source the 4 fully-written demo documents from romanian_sme_ai_companion_project_control_pack.md §23.3. Mock the analysis output (classification, summary, extracted fields, suggested action, urgency) using the "Expected extraction" / "Expected summary" blocks already written in that section.
+6. Visual style: dark-gray palette per ops/rules.constraints.hybrid §Visual. Calm. Anti-hype.
+7. Minimal README pointing at the docs and ops/.
+8. When done:
+   - git commit with a clear message
+   - append ONE line to ops/slice-1.homepage.hybrid PATCHLOG (timestamp · model · summary)
+   - update STATE in slice-1 frontmatter from "forming" to "stable"
+   - append ONE line to ops/project.state.hybrid PATCHLOG and update §Now (current → next slice)
+
+Confirm the plan in 3 lines, then start with step 1.
+
+Out of scope: backend, real AI, upload, auth, Ask My Company, Draft Reply, the 12 missing demo docs.
+
+If you hit a blocker: stop, append a line to slice-1 OPEN EDGES, commit what you have, report back. Do not improvise scope.
+```
+
+---
+
+## State
+
+```
+state     stable
+gravity   HIGH (gates phase-1)
+topology  shipped
+```
+
+---
+
+## Open edges
+
+```
+- tailwind v4 vs v3 at scaffold time          builder picks latest stable, records in patchlog
+- repo layout (flat vs apps/web from day 1)   flat for now, restructure in slice-3
+- Romanian demo doc text vs English UI labels in same card  builder decides display pattern
+```
+
+---
+
+## Patchlog
+
+```
+2026-05-05  coordinator(opus)  slice defined · builder prompt embedded · ready for handoff
+2026-05-05  builder(claude-sonnet-4-6)  git init · SvelteKit+Svelte5+TS+Tailwind4 scaffold · / /demo /app/inbox built · 4 demo docs static JSON · dark-gray palette · README · 0 errors · state→stable
+```

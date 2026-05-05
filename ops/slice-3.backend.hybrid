@@ -1,0 +1,85 @@
+---
+id: slice-3.backend
+type: build-slice
+domain: bca.backend + bca.ai
+agreement: bca.build-roadmap
+state: seed
+density: L2.5
+---
+
+# Slice 3 · FastAPI Backend + One Real AI Workflow
+
+*Stop mocking · one document type · end-to-end real*
+
+---
+
+## Why
+
+Mocks prove the UX. This slice proves the AI.
+Pick the easiest path: PDF supplier invoice → text → classify → summarize → extract → display.
+Everything else (Ask My Company, Draft Reply) stays mocked until this proves out.
+
+---
+
+## Scope (sketch — refine when slice-2 lands)
+
+```
+infra      docker-compose: postgres + pgvector
+           restructure repo: apps/web + apps/api + infra/
+
+api        FastAPI scaffold
+           endpoints: workspace · document · analysis · audit
+           SQLAlchemy models per technical_stack §5 data model
+           Alembic migrations
+
+ingest     PDF upload · text extraction (text-PDF only · no OCR yet)
+           background task for analysis (FastAPI BackgroundTasks for now)
+
+ai         provider adapter (start: ONE provider — Mistral or OpenAI-compatible)
+           runtime prompts: classifier v1 · summary v1 · invoice-extractor v1
+           embed version line inside each prompt template
+                # prompt: <name> v<version>
+           validate JSON output against Pydantic schemas
+           save prompt_runs records per registry §23.5
+
+ui         /app/inbox switches from static JSON to API
+           upload UI · loading states · empty/error states
+           keep slice-2 mocks for Ask My Company and Draft Reply
+
+acceptance  upload one of the 5 invoice PDFs from §23.3
+            card appears in inbox within ~10s
+            extracted fields match the "Expected extraction" block (high accuracy on
+              supplier_name · invoice_number · total_amount · due_date)
+            audit event logged · no hallucinated amounts · missing fields surfaced honestly
+```
+
+---
+
+## State
+
+```
+state     seed
+gravity   HIGH (gates pilot)
+topology  now: planned → next: refine after slice-2 ships → destination: shipped
+```
+
+---
+
+## Open edges
+
+```
+- AI provider choice           Mistral (matches existing experience) vs OpenAI-compat (broader tooling)
+- LiteLLM gateway              from start vs add when 2+ providers needed
+- OCR                          skip entirely in this slice · defer to slice-4
+- worker queue                 BackgroundTasks throughout vs Celery from start
+- evaluation harness           build alongside this slice or push to slice-4
+- repo restructure timing      do it as first step of this slice or just before
+```
+
+---
+
+## Patchlog
+
+```
+2026-05-05  coordinator(opus)  seeded · refine after slice-2 ships
+```

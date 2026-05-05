@@ -1,0 +1,68 @@
+---
+id: slice-2.demo-data
+type: build-slice
+domain: bca.content + bca.frontend.phase-1
+agreement: bca.build-roadmap
+state: seed
+density: L2.5
+---
+
+# Slice 2 · Complete Demo Dataset + Ask/Reply Mocks
+
+*Fill the 12 missing demo docs · add interactive mocks for Ask My Company and Draft Reply*
+
+---
+
+## Why
+
+Slice 1 ships with 4 documents. Blueprint demo dataset (project_control_pack §23.3) lists 16.
+Without the full set /app/inbox feels thin and Ask My Company has nothing to query.
+Still no backend — these are richer mocks built on bigger static JSON.
+
+---
+
+## Scope (sketch — refine when slice-1 lands)
+
+```
+content   4 more invoices · 2 more client emails · 2 supplier offers
+          1 more contract · 1 HR policy · 1 internal procedure · 1 price list
+          each doc:   synthetic content + expected extraction + expected summary
+          source filenames already enumerated in project_control_pack §23.3
+
+mocks     /app/ask           Ask My Company chat · answer from static JSON · no real RAG
+          Draft Reply panel  inside doc detail · pre-canned drafts per client request
+
+acceptance  16 cards in inbox
+            8 questions from §23.3 "Example Ask My Company Questions" return non-empty answers
+            client request docs render a Romanian Draft Reply with Approve/Edit affordances
+            no broken states · still under 3-min walkthrough
+```
+
+---
+
+## State
+
+```
+state     seed
+gravity   MEDIUM (unblocks pilot demos)
+topology  now: planned → next: refine after slice-1 ships → destination: shipped
+```
+
+---
+
+## Open edges
+
+```
+- mock RAG strategy: keyword match · canned answers per question · fuzzy match library?
+- if Ask My Company answers are pre-canned, are they fragile under unexpected questions?
+- supplier offer realism — we don't have real Romanian supplier offer formats to mimic
+- where the 12 documents live: content/synthetic/*.md or one big JSON?
+```
+
+---
+
+## Patchlog
+
+```
+2026-05-05  coordinator(opus)  seeded · refine after slice-1 ships
+```

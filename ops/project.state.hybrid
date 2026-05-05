@@ -1,0 +1,102 @@
+---
+id: project.state
+type: operations-log
+domain: bca.coordination
+agreement: bca.build-roadmap
+state: stable
+density: L2.5
+---
+
+# Business Companion AI · State
+
+*Coordination memory across sessions · open this first · patchlog is truth*
+
+---
+
+## Now
+
+```
+phase      1
+current    slice-2.demo-data  (seed)
+next       slice-3.backend
+blocked    —
+```
+
+---
+
+## Loop
+
+```
+1  user opens coordinator (opus) session
+2  coordinator reads project.state + git log + builder patchlogs
+3  coordinator updates state · refines next builder prompt (lives inside slice codon)
+4  user copies builder prompt → opens IDE session (sonnet ok) → pastes
+5  builder executes one slice · commits · appends one PATCHLOG line to slice + state codons
+6  next coordinator session: back to step 2
+```
+
+User is in the loop only at session boundaries and judgment calls.
+Coordinator owns sequence and prompts. Builder owns code.
+
+---
+
+## Slices
+
+```
+slice-1  homepage + inbox mock              stable     gravity HIGH
+slice-2  demo-data + ask + reply mocks      seed
+slice-3  fastapi backend + 1 real workflow  seed
+slice-4  evaluation harness                 (not yet seeded)
+slice-5  pilot-ready polish                 (not yet seeded)
+```
+
+---
+
+## Done
+
+```
+2026-05-05  phase-0 product definition closed
+2026-05-05  stack locked: SvelteKit + FastAPI + Postgres+pgvector
+2026-05-05  name locked: Business Companion AI
+2026-05-05  prompt-pack deduplicated (was 2× by paste error · 2180 → 1091 lines)
+2026-05-05  filename typos fixed: build_recommendation, technical_stack
+2026-05-05  CLAUDE.md written
+2026-05-05  codon coordination model adopted (from csmcl.space)
+2026-05-05  slice-1 shipped: git init · SvelteKit+Svelte5+TS+Tailwind4 · / /demo /app/inbox · 4 synthetic demo docs · dark-gray palette · README
+```
+
+---
+
+## Decisions waiting on user
+
+```
+—
+```
+
+## Questions waiting on coordinator
+
+```
+—
+```
+
+---
+
+## Open edges
+
+```
+- repo layout: flat now, monorepo when api joins  (defer to slice-3)
+- tailwind major version at scaffold time         (slice-1 builder picks)
+- hosting for early demo: Vercel preview vs local-only
+- inline prompt versioning embedded into runtime prompts  (defer to slice-3)
+- final public name: revisit after 2-3 SME pilot conversations
+```
+
+---
+
+## Patchlog
+
+```
+2026-05-05  coordinator(opus)  initial state codon · refactor from NEXT_STEPS.md
+2026-05-05  coordinator(opus)  ops/ codon set adopted · 5 codons created · CLAUDE.md slimmed
+2026-05-05  builder(claude-sonnet-4-6)  slice-1 shipped · SvelteKit scaffold · / /demo /app/inbox · static inbox data · 0 build errors · phase 0→1 complete
+```

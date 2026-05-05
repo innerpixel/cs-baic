@@ -1,0 +1,112 @@
+---
+id: rules.constraints
+type: anchor
+domain: bca.principles
+agreement: bca.build-roadmap
+state: anchored
+density: L2.5
+---
+
+# Constraints
+
+*Durable rules · do not violate · gravity HIGH · stable across all slices*
+
+---
+
+## Trust principle
+
+```
+AI prepares · humans approve
+```
+
+Every UI affordance reinforces this. Never bypass. Never auto-send.
+
+---
+
+## Data
+
+```
+synthetic only             no real CUI · IBAN · names · addresses · companies
+canonical demo company     Atelier Nova SRL  (Pitești · 12 employees)
+no parallel demo companies invented mid-stream
+```
+
+---
+
+## Tone
+
+```
+do      calm · concrete · practical · trustworthy · Romanian-aware
+do not  transformation · revolutionary · next-generation · empower · AI-powered innovation
+```
+
+Reference: `romanian_sme_ai_companion_promotion_go_to_market_pack.md` §4 (don't-say) · §5 (do-say).
+
+---
+
+## Language
+
+```
+UI copy · README · code     English
+demo documents              Romanian (do not translate)
+example accountant emails   Romanian
+```
+
+---
+
+## Stack (settled)
+
+```
+frontend   SvelteKit · Svelte 5 · TypeScript · Tailwind · runes for state
+backend    FastAPI · Pydantic · SQLAlchemy/SQLModel · Alembic
+database   PostgreSQL + pgvector  (no separate vector DB in MVP)
+storage    local FS first · MinIO when needed
+queue      FastAPI BackgroundTasks first · Redis+Celery when needed
+```
+
+---
+
+## Visual
+
+```
+palette    muted dark gray · diagrams.md style guide
+           bg #2f3437  main #3d4448  action #4b5256  data #25292c
+           stroke #8a8f93 / #b2b8bc  text #f2f2f2
+mood       calm · light · not overdesigned · trustworthy
+```
+
+---
+
+## Prompt hygiene
+
+```
+runtime prompts versioned    v1 · v1.1 · v2
+never silently rewrite       bump version + record what/why changed
+inline version line          embed once slice-3 wires real AI
+                             format: # prompt: <name> v<version>
+registry source of truth     project_control_pack.md §23.5
+```
+
+---
+
+## MVP exclusions (load-bearing)
+
+```
+no autonomous email sending
+no automatic payments
+no ANAF / SPV / e-Factura integration
+no ERP integration
+no fine-tuning
+no multi-tenant enterprise permissions
+no mobile app
+```
+
+Reference: `romanian_sme_ai_companion_project_control_pack.md` §23.2 (MVP boundary).
+
+---
+
+## Patchlog
+
+```
+2026-05-05  coordinator(opus)  extracted from CLAUDE.md + blueprint + gtm-pack · anchored
+```
