@@ -72,7 +72,13 @@ def run_analysis(document_id: uuid.UUID, db: Session) -> None:
         existing.fields = analysis_data.get("fields")
         existing.missing_fields = analysis_data.get("missing_fields")
         existing.risk_flags = analysis_data.get("risk_flags")
+        existing.summary = analysis_data.get("summary")
         existing.suggested_action = analysis_data.get("suggested_action")
+        existing.detected_type = analysis_data.get("detected_type")
+        existing.confidence = analysis_data.get("confidence")
+        existing.language = analysis_data.get("language")
+        existing.urgency = analysis_data.get("urgency")
+        existing.analyzer_outputs = analysis_data.get("analyzer_outputs")
         existing.prompt_run_id = last_prompt_run_id
     else:
         db.add(DocumentAnalysis(
@@ -82,7 +88,13 @@ def run_analysis(document_id: uuid.UUID, db: Session) -> None:
             fields=analysis_data.get("fields"),
             missing_fields=analysis_data.get("missing_fields"),
             risk_flags=analysis_data.get("risk_flags"),
+            summary=analysis_data.get("summary"),
             suggested_action=analysis_data.get("suggested_action"),
+            detected_type=analysis_data.get("detected_type"),
+            confidence=analysis_data.get("confidence"),
+            language=analysis_data.get("language"),
+            urgency=analysis_data.get("urgency"),
+            analyzer_outputs=analysis_data.get("analyzer_outputs"),
         ))
 
     doc.status = "done" if any_succeeded else "failed"

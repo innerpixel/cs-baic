@@ -36,6 +36,11 @@ class AnalysisOut(BaseModel):
     risk_flags: list | None
     summary: str | None
     suggested_action: str | None
+    detected_type: str | None
+    confidence: float | None
+    language: str | None
+    urgency: str | None
+    analyzer_outputs: dict | None
     created_at: datetime
 
     model_config = {"from_attributes": True}
