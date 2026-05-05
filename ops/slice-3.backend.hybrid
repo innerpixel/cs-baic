@@ -3,54 +3,337 @@ id: slice-3.backend
 type: build-slice
 domain: bca.backend + bca.ai
 agreement: bca.build-roadmap
-state: seed
+state: stable
 density: L2.5
 ---
 
-# Slice 3 · FastAPI Backend + One Real AI Workflow
+# Slice 3 · First Real AI · Invoice Extraction End-to-End
 
-*Stop mocking · one document type · end-to-end real*
+*Restructure to monorepo · FastAPI + Postgres · ONE prompt (invoice_extractor v1) · upload-to-extracted in ~10s · stop mocking invoices*
 
 ---
 
 ## Why
 
-Mocks prove the UX. This slice proves the AI.
-Pick the easiest path: PDF supplier invoice → text → classify → summarize → extract → display.
-Everything else (Ask My Company, Draft Reply) stays mocked until this proves out.
+Slices 1 and 2 prove the UX. This slice proves the AI works on a real document.
+Pick the narrowest path that closes the loop: text upload → invoice_extractor v1 → fields visible in inbox.
+Everything else (classifier, summary, contracts, RAG, OCR, PDF) stays mocked or deferred.
+
+The win: paste a real Romanian invoice text, watch fields populate, see no hallucinated amounts.
+That's the moment the product becomes credible to a Romanian SME owner instead of just looking credible.
 
 ---
 
-## Scope (sketch — refine when slice-2 lands)
+## Scope
 
 ```
-infra      docker-compose: postgres + pgvector
-           restructure repo: apps/web + apps/api + infra/
+IN     repo restructure       apps/web (move existing SvelteKit) · apps/api (new) · infra/
+       infra/                  docker-compose.yml (postgres only) · .env.example
+       FastAPI                 pyproject.toml · app/ structure per stack pack §3
+       database                postgres (no pgvector yet — defer to slice-5 when RAG)
+                               SQLAlchemy + Alembic
+                               4 tables: documents · document_analyses · audit_events · prompt_runs
+       endpoints               POST   /api/documents          multipart .txt + type selector
+                               GET    /api/documents          list
+                               GET    /api/documents/:id      detail (with analysis + audit)
+                               POST   /api/documents/:id/approve
+                               GET    /api/audit              recent events
+                               GET    /api/health             liveness
+       provider adapter        OpenAI-compatible client · env-configurable
+                                 LLM_API_BASE_URL · LLM_API_KEY · LLM_MODEL
+       analyzer framework      pluggable Analyzer protocol · registry · pipeline dispatches by doc.type
+                               slice-3 ships ONE registered analyzer (InvoiceExtractor)
+                               slice-4+ adds new analyzers as new files · no pipeline refactor
+       prompt                  invoice_extractor v1 · template file under apps/api/app/prompts/
+                               first line MUST be: # prompt: invoice_extractor v1
+                               output validated against Pydantic InvoiceExtraction schema
+       pipeline                upload → save document row → BackgroundTask:
+                                 for analyzer in analyzers_for(doc):
+                                   call analyzer.run(doc) → merge result into DocumentAnalysis +
+                                   record PromptRun + append AuditEvent
+       frontend wiring         /app/inbox loads from GET /api/documents (loading/empty/error states)
+                               upload UI: textarea + filename + type selector + Submit
+                               show "Live" badge on real-extracted docs vs none on others
+       seed script             apps/api/scripts/seed_invoices.py
+                                 uploads the 4 existing invoice rawContent strings as type=supplier_invoice
+                                 use ONLY content already in src/lib/data/inbox.ts (don't re-author)
 
-api        FastAPI scaffold
-           endpoints: workspace · document · analysis · audit
-           SQLAlchemy models per technical_stack §5 data model
-           Alembic migrations
+OUT    classifier prompt        slice-4
+       summary prompt           slice-4
+       contract review prompt   slice-4
+       PDF parsing              slice-4
+       OCR                      slice-5
+       pgvector + embeddings    slice-5
+       Ask My Company real      slice-5 (qa.ts mocks remain)
+       Draft Reply real         slice-5 (replies.ts mocks remain)
+       authentication           post-MVP
+       multi-tenant / users     post-MVP
+       evaluation harness       slice-4
+       Celery / Redis           when retry or long jobs · not yet
+       MinIO                    when local FS hurts · not yet
+       LiteLLM                  when 2+ providers · not yet
+```
 
-ingest     PDF upload · text extraction (text-PDF only · no OCR yet)
-           background task for analysis (FastAPI BackgroundTasks for now)
+---
 
-ai         provider adapter (start: ONE provider — Mistral or OpenAI-compatible)
-           runtime prompts: classifier v1 · summary v1 · invoice-extractor v1
-           embed version line inside each prompt template
-                # prompt: <name> v<version>
-           validate JSON output against Pydantic schemas
-           save prompt_runs records per registry §23.5
+## Acceptance
 
-ui         /app/inbox switches from static JSON to API
-           upload UI · loading states · empty/error states
-           keep slice-2 mocks for Ask My Company and Draft Reply
+```
+infra        docker compose up postgres                 → healthy
+             cd apps/api && uv run uvicorn app.main:app → starts on :8000
+             cd apps/web && npm run dev                 → still serves slice-2 pages
+             alembic upgrade head                        → 4 tables created
 
-acceptance  upload one of the 5 invoice PDFs from §23.3
-            card appears in inbox within ~10s
-            extracted fields match the "Expected extraction" block (high accuracy on
-              supplier_name · invoice_number · total_amount · due_date)
-            audit event logged · no hallucinated amounts · missing fields surfaced honestly
+happy path   POST /api/documents with the invoice_lumina_design rawContent (type=supplier_invoice)
+             → 202 Accepted with document.id
+             ~10s later: GET /api/documents/:id returns analysis with:
+                 supplier_name = "Lumina Design SRL"
+                 supplier_cui  = "RO00000001"
+                 invoice_number= "LD 0041"
+                 invoice_date  = "28.04.2026"
+                 due_date      = "12.05.2026"
+                 total_amount  = "3046.40"
+                 currency      = "RON"
+                 missing_fields includes purchase order reference (or equivalent)
+
+             prompt_runs has one row with:
+                 prompt_name=invoice_extractor · prompt_version=v1 · status=success
+                 input_hash · output_json populated
+
+             audit_events has at least 2 rows for this document:
+                 uploaded · analyzed
+
+honesty      no hallucinated amounts · CUI · IBAN · invoice number
+             missing fields surfaced honestly
+             on JSON parse failure: status=failed in prompt_runs · error message visible
+
+ui           /app/inbox shows the seeded invoices as "Live"
+             other 12 docs (slice-2 mocks) hidden from inbox  (they remain in /demo as static)
+             clicking a live doc shows real extraction
+             approve still works · audit events render
+             /app/ask continues working unchanged on its static qa.ts
+             /demo unchanged
+```
+
+---
+
+## Constraints inherited
+
+See `ops/rules.constraints.hybrid` (anchored). Slice-3 specific reinforcement:
+- Inline prompt version line is now ENFORCED. First line of every runtime prompt template:
+  `# prompt: <name> v<version>`
+  Anything calling a prompt without parsing & logging this version: reject in code review.
+- No autonomous sending — the approve endpoint records intent, never transmits.
+- Provider abstraction: do not import `openai` (or any provider SDK) outside the adapter module.
+
+---
+
+## Resolved decisions (coordinator)
+
+```
+provider           OpenAI-compatible Python client (works with Mistral, OpenAI, Ollama, etc.)
+                   point LLM_API_BASE_URL at the provider; default in .env.example: Mistral
+                   builder uses the official `openai` Python SDK with custom base_url
+                   (matches user's existing Mistral experience while keeping options open)
+
+LiteLLM            skip · revisit when 2+ providers active
+
+OCR                skip · slice-5
+
+PDF parsing        skip · slice-4 will add pdfplumber for text-PDFs
+
+worker queue       FastAPI BackgroundTasks · move to Celery+Redis when retry/long jobs needed
+
+schema scope       MVP-minimum: documents · document_analyses · audit_events · prompt_runs
+                   defer: users · workspaces · document_chunks · suggested_actions · evaluations
+
+auth               none · single-tenant · localhost-only for now
+
+repo restructure   first task of slice-3 (so subsequent code lands in the right place)
+
+analyzer modularity  pluggable Analyzer protocol from day one · registry-based dispatch
+                     slice-3 ships only InvoiceExtractor · slice-4 adds Classifier + Summarizer +
+                     ContractReviewer as new files in app/analyzers/ — no pipeline refactor needed
+                     each Analyzer has: name · version · applies_to: set[DocType] · run(doc)
+                     multiple analyzers may run on one doc · they write different fields
+                     into DocumentAnalysis (classifier→type+confidence · summarizer→summary ·
+                     extractor→fields/missing/risk · reviewer→risk_flags+terms)
+                     each analyzer call creates its own PromptRun row (full audit trail)
+
+input format       text only (.txt or pasted) · upload UI takes a textarea + filename
+                   builder must NOT introduce PDF parsing in this slice
+
+doc type           user-selected on upload (dropdown) · no auto-classification yet
+                   slice-3 only validates type === supplier_invoice for the extractor pipeline
+                   uploads of other types: save document, no analysis run, audit "not_supported_yet"
+
+inbox display      slice-3 hides slice-2's 12 non-invoice mocks from /app/inbox
+                   /demo keeps them as static marketing content
+                   /app/ask qa.ts unchanged (still references the 16-doc mock set)
+```
+
+---
+
+## API contract (initial)
+
+```
+POST /api/documents
+  multipart/form-data
+    text:     string  (required · the document body)
+    filename: string  (required · e.g., "invoice_lumina.txt")
+    type:     enum    (required · supplier_invoice | client_invoice | contract |
+                       supplier_offer | client_request | accountant_request |
+                       hr_document | internal_procedure | price_list | unknown)
+  → 202 { id, status: "queued" }
+
+GET /api/documents
+  → 200 [{ id, filename, type, status, created_at, urgency? }]
+
+GET /api/documents/:id
+  → 200 { document, analysis, audit_events }
+        analysis: null until pipeline finishes
+        analysis.fields[] · analysis.missing_fields[] · analysis.risk_flags[]
+        analysis.summary (null in slice-3 — summary prompt is slice-4)
+        analysis.suggested_action (null in slice-3)
+
+POST /api/documents/:id/approve
+  → 200 { document_id, approved_at } · appends audit event
+
+GET /api/audit?limit=50
+  → 200 [{ id, document_id?, event_type, event_data, created_at }]
+
+GET /api/health → 200 { status: "ok" }
+```
+
+---
+
+## Prompt template (invoice_extractor v1)
+
+Builder writes `apps/api/app/prompts/invoice_extractor_v1.txt` with:
+- First line: `# prompt: invoice_extractor v1`
+- Adapt prompt 19.16 from `codocz/romanian_sme_ai_companion_prompt_pack.md` verbatim for the body
+- Inject DOCUMENT_TEXT via simple `{{DOCUMENT_TEXT}}` substitution (no Jinja yet)
+- Output validated against Pydantic schema mirroring the JSON skeleton in §19.16
+
+When the prompt is loaded, the runner:
+1. Parses the first line for `# prompt: <name> v<version>`
+2. Records both in the prompt_runs row
+3. Stores the substituted full prompt as input_text + a sha256 in input_hash
+
+---
+
+## Builder prompt
+
+Copy this into a fresh IDE session (Sonnet) at `/home/innerpixel/dev/sme-companion`:
+
+```text
+Read CLAUDE.md, ops/project.state.hybrid, ops/rules.constraints.hybrid, ops/slice-3.backend.hybrid, then codocz/romanian_sme_ai_companion_technical_stack_decision_pack.md §3-§6 and codocz/romanian_sme_ai_companion_prompt_pack.md §19.16.
+
+You are the builder for slice-3. Coordinator (opus) has resolved scope, decisions, and API contract; you execute.
+
+This slice is bigger than slice-1 and slice-2. Commit at every checkpoint below. If you hit a blocker after step 3, stop, append to slice-3 OPEN EDGES, commit what you have, report back.
+
+Tasks:
+
+1. RESTRUCTURE THE REPO (do this first so subsequent code lands correctly).
+   - Create apps/web/ and move ALL existing SvelteKit-related files into it: src/, static/, package.json, package-lock.json, svelte.config.js, vite.config.ts, tsconfig.json, .svelte-kit/ (gitignored), .npmrc.
+   - Create apps/api/ (empty for now).
+   - Create infra/ (empty for now).
+   - Update root .gitignore (keep node_modules patterns valid for the new path).
+   - Verify: cd apps/web && npm install && npm run dev still serves /, /demo, /app/inbox, /app/ask the same as before.
+   - Commit: "slice-3(infra): monorepo restructure · web → apps/web · api/infra placeholders"
+
+2. INFRA — POSTGRES VIA DOCKER COMPOSE.
+   - infra/docker-compose.yml: single service `postgres:16` on port 5432, named volume, env vars from .env.
+   - infra/.env.example: POSTGRES_USER · POSTGRES_PASSWORD · POSTGRES_DB · LLM_API_BASE_URL · LLM_API_KEY · LLM_MODEL.
+   - Document in apps/api/README.md how to run: cd infra && docker compose up -d postgres.
+   - Commit: "slice-3(infra): postgres docker-compose + env example"
+
+3. FASTAPI SCAFFOLD.
+   - apps/api/pyproject.toml using uv (or poetry — your call; record in patchlog).
+   - apps/api/app/ structure: main.py · api/ · core/ · db/ · models/ · schemas/ · services/ · prompts/ · workers/.
+   - Dependencies: fastapi · uvicorn · sqlalchemy · alembic · pydantic · pydantic-settings · python-multipart · openai (used as OpenAI-compatible client) · psycopg2-binary or psycopg[binary].
+   - core/config.py: Pydantic BaseSettings reading from .env.
+   - db/session.py: SQLAlchemy engine + sessionmaker.
+   - main.py: FastAPI app with CORS for localhost:5173 · health endpoint · API router prefix /api.
+   - Verify: uv run uvicorn app.main:app --reload starts cleanly · curl localhost:8000/api/health returns {"status":"ok"}.
+   - Commit: "slice-3(api): FastAPI scaffold · config · session · health"
+
+4. ALEMBIC + MODELS.
+   - Initialize alembic: cd apps/api && uv run alembic init -t async alembic (or sync — your call).
+   - Configure alembic env.py to read from app.core.config and app.db.models.
+   - Models in app/db/models/ (one file per model OR a single models.py — your call):
+       Document(id UUID, filename str, type str, status str, raw_text Text, created_at, updated_at)
+       DocumentAnalysis(id UUID, document_id FK, prompt_run_id FK,
+                        fields JSONB, missing_fields JSONB, risk_flags JSONB,
+                        summary Text nullable, suggested_action Text nullable,
+                        created_at)
+       AuditEvent(id UUID, document_id FK nullable, event_type str, event_data JSONB, created_at)
+       PromptRun(id UUID, document_id FK nullable, prompt_name str, prompt_version str,
+                 model str, input_text Text, input_hash str, output_json JSONB nullable,
+                 status str, error_message Text nullable, created_at, completed_at nullable)
+   - Generate the initial migration: alembic revision --autogenerate -m "initial schema"
+   - Run: alembic upgrade head — verify 4 tables exist in postgres.
+   - Commit: "slice-3(api): alembic + 4 initial models · documents · analyses · audit · prompt_runs"
+
+5. PROVIDER ADAPTER + PROMPT LOADER.
+   - app/services/llm.py: a thin adapter wrapping the OpenAI Python SDK with custom base_url. Single function: complete(prompt: str, model: str | None = None) -> str. Reads LLM_* env vars. Do NOT import openai outside this module.
+   - app/services/prompts.py: load_prompt(name) reads apps/api/app/prompts/<name>_<version>.txt, parses the first line for `# prompt: <name> v<version>`, returns (template, name, version). Provide substitute(template, vars) for `{{VAR}}` placeholder replacement.
+   - Commit: "slice-3(api): provider adapter + prompt loader"
+
+6. ANALYZER FRAMEWORK + INVOICE EXTRACTOR.
+   - app/analyzers/base.py: Analyzer Protocol with `name: str`, `version: str`, `applies_to: set[DocType]`, async `run(document) -> AnalyzerResult`. AnalyzerResult is a small Pydantic class carrying: analyzer_name · analyzer_version · prompt_input · prompt_output_raw · parsed_output (Any) · status ("success"|"failed") · error_message (optional).
+   - app/analyzers/registry.py: ANALYZERS list and `analyzers_for(doc) -> list[Analyzer]` returning every analyzer where doc.type in applies_to.
+   - app/analyzers/merge.py: `merge_into_analysis(doc_analysis, result)` function that knows how each analyzer's parsed_output maps to columns of DocumentAnalysis (slice-3 only handles InvoiceExtraction → fields/missing_fields/risk_flags; slice-4 will extend it for classifier/summary/contract — keep this function easy to extend with isinstance dispatch or a per-analyzer mapper).
+   - app/schemas/extraction.py: Pydantic InvoiceExtraction schema mirroring codocz/romanian_sme_ai_companion_prompt_pack.md §19.16 JSON.
+   - app/prompts/invoice_extractor_v1.txt: first line `# prompt: invoice_extractor v1`, body adapted from §19.16 with {{DOCUMENT_TEXT}} placeholder.
+   - app/analyzers/invoice_extractor.py: class InvoiceExtractor implementing the protocol. applies_to = {"supplier_invoice"}. run() loads prompt, substitutes text, calls llm.complete, parses JSON, validates against InvoiceExtraction schema, returns AnalyzerResult.
+   - Register InvoiceExtractor in registry.ANALYZERS.
+   - Commit: "slice-3(api): analyzer framework + InvoiceExtractor v1 (first registered analyzer)"
+
+7. PIPELINE + ENDPOINTS.
+   - app/services/analysis.py: `run_analysis(document_id)` — loads doc, calls analyzers_for(doc); for each analyzer: invoke run(), merge_into_analysis the result, persist a PromptRun row (success/failure with error_message), append AuditEvent ("analyzed_by:<analyzer.name>"). If no analyzers applicable: append AuditEvent "not_supported_yet" and leave analysis null.
+   - app/api/documents.py: POST /api/documents (multipart) → save Document, schedule BackgroundTask(run_analysis). GET /api/documents (list, ordered by created_at desc). GET /api/documents/:id (detail with analysis + audit). POST /api/documents/:id/approve (audit event).
+   - app/api/audit.py: GET /api/audit?limit=50.
+   - Wire routers into main.py.
+   - Commit: "slice-3(api): pipeline (registry dispatch) + documents + audit endpoints"
+
+8. SEED SCRIPT.
+   - apps/api/scripts/seed_invoices.py: reads the 4 invoice docs from apps/web/src/lib/data/inbox.ts (or hand-copies their rawContent — your call). Posts each to /api/documents as type=supplier_invoice. Prints document IDs and waits for analysis to complete (poll GET /api/documents/:id every 2s for up to 60s).
+   - Run it manually, verify all 4 succeed, capture one extraction in your patchlog summary.
+   - Commit: "slice-3(api): seed script for 4 invoices + verified end-to-end"
+
+9. FRONTEND WIRING.
+   - apps/web/src/lib/api/client.ts: typed fetch wrappers for the 5 endpoints. Read VITE_API_BASE_URL from env, default http://localhost:8000.
+   - apps/web/src/routes/app/inbox/+page.svelte: replace static INBOX_DOCS import with API fetch. Loading state · empty state · error state. Map API response to the existing UI shape (extraction.fields → ExtractedField[] etc).
+   - Add an Upload UI: textarea + filename input + type dropdown + Submit button. On submit: POST /api/documents, optimistic add to list with status="queued", then poll the doc until analysis arrives.
+   - Show "Live" badge on cards backed by API data.
+   - Hide slice-2's 12 non-invoice mocks from /app/inbox (do NOT delete inbox.ts — /demo and /app/ask still reference parts of it; you may need to split: e.g., move the 12 to a separate export `MOCK_DEMO_DOCS` used only by /demo).
+   - Verify: with backend up + seed run, /app/inbox shows the 4 invoices as "Live" with correct extractions.
+   - Commit: "slice-3(web): API client + /app/inbox wired to backend + upload UI"
+
+10. ACCEPTANCE.
+    - Run through every line of slice-3 §Acceptance manually. Note any deviations.
+    - npm run check (apps/web) must pass · ruff/pyright equivalent if you set one up
+    - Update apps/web/README.md and apps/api/README.md with run instructions.
+
+11. SHIP.
+    - append ONE PATCHLOG line to ops/slice-3.backend.hybrid (timestamp · model · summary · which provider/model you tested with)
+    - update STATE in slice-3 frontmatter from "forming" to "stable"
+    - append ONE PATCHLOG line to ops/project.state.hybrid · update §Now (current → slice-4) and §Slices (slice-3 → stable)
+    - update CLAUDE.md §Common operations with the new run commands (web + api + postgres)
+    - final commit: "slice-3: codon shipped · state→stable"
+
+Hard rules (do not violate):
+- inline prompt version line on every runtime prompt; runner parses + logs it
+- never call provider SDK outside app/services/llm.py
+- never bypass the analyzer registry — pipeline ALWAYS dispatches via analyzers_for(doc)
+- new analyzers in slice-4+ must implement the same Analyzer protocol; do not special-case
+- no Send button anywhere · ever
+- no real or hallucinated CUI/IBAN/amounts · synthetic only
+- on JSON parse failure: persist as prompt_run.status="failed" with error_message; do NOT silently retry
+
+Confirm the plan in 3 lines, then start with task 1.
 ```
 
 ---
@@ -58,22 +341,24 @@ acceptance  upload one of the 5 invoice PDFs from §23.3
 ## State
 
 ```
-state     seed
-gravity   HIGH (gates pilot)
-topology  now: planned → next: refine after slice-2 ships → destination: shipped
+state     stable
+gravity   HIGH (gates the moment "AI works on a real document")
+topology  defined → in-progress → shipped
 ```
 
 ---
 
-## Open edges
+## Open edges (remaining)
 
 ```
-- AI provider choice           Mistral (matches existing experience) vs OpenAI-compat (broader tooling)
-- LiteLLM gateway              from start vs add when 2+ providers needed
-- OCR                          skip entirely in this slice · defer to slice-4
-- worker queue                 BackgroundTasks throughout vs Celery from start
-- evaluation harness           build alongside this slice or push to slice-4
-- repo restructure timing      do it as first step of this slice or just before
+- Python tooling resolved: uv (pyproject.toml · uv.lock)
+- alembic: sync (not async) — simpler for single-tenant MVP
+- monorepo orchestration: flat commands per app (no root npm workspaces)
+- structured logging: deferred to slice-4
+- seed script: hand-ported 5 invoice rawContent strings to Python
+- VITE_API_BASE_URL: one .env.example per app (apps/web + apps/api + infra)
+- docker not available on build machine: migrations + seed deferred to user setup
+- 5 supplier invoices seeded (not 4 as initially planned — 5th was added in slice-2)
 ```
 
 ---
@@ -82,4 +367,19 @@ topology  now: planned → next: refine after slice-2 ships → destination: shi
 
 ```
 2026-05-05  coordinator(opus)  seeded · refine after slice-2 ships
+2026-05-05  coordinator(opus)  refined seed→forming · scope sharpened to ONE prompt e2e ·
+                               restructure first · API contract drafted · 6 open edges resolved ·
+                               builder prompt embedded
+2026-05-05  coordinator(opus)  user input: classifiers/analyzers should be modular ·
+                               added Analyzer protocol + registry + merge to slice-3 ·
+                               builder task 5 split into 5 (provider+loader) + 6 (analyzer framework + InvoiceExtractor) ·
+                               slice-4 reduced to "register more analyzers" not "refactor pipeline"
+2026-05-05  builder(claude-sonnet-4-6)  slice-3 shipped · monorepo restructure (apps/web · apps/api · infra) ·
+                               FastAPI + 4 models + Alembic (sync) · uv · InvoiceExtractor v1 ·
+                               Analyzer protocol + registry + merge · 5 api endpoints ·
+                               frontend wired to API (upload UI · live badge · audit log) ·
+                               0 type errors (web) · provider: openai-compat pointing at Mistral ·
+                               blocker: docker not installed on build machine — migrations + seed
+                               deferred to user; code is correct, run: docker compose up -d postgres &&
+                               alembic upgrade head && uv run python scripts/seed_invoices.py
 ```

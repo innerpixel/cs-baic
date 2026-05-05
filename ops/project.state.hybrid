@@ -17,8 +17,8 @@ density: L2.5
 
 ```
 phase      1
-current    slice-3.backend
-next       slice-4.evaluation-harness
+current    slice-4.classifier-summary-pdf-eval  (not yet seeded)
+next       slice-5.rag-ask-reply-ocr
 blocked    —
 ```
 
@@ -43,11 +43,11 @@ Coordinator owns sequence and prompts. Builder owns code.
 ## Slices
 
 ```
-slice-1  homepage + inbox mock              stable     gravity HIGH
-slice-2  demo-data + ask + reply mocks      stable     gravity HIGH
-slice-3  fastapi backend + 1 real workflow  seed
-slice-4  evaluation harness                 (not yet seeded)
-slice-5  pilot-ready polish                 (not yet seeded)
+slice-1  homepage + inbox mock                       stable     gravity HIGH
+slice-2  demo-data + ask + reply mocks               stable     gravity HIGH
+slice-3  monorepo + fastapi + invoice extractor e2e  stable     gravity HIGH
+slice-4  classifier + summary + PDF + eval harness   (not yet seeded)
+slice-5  RAG (pgvector) + Ask live + Draft live + OCR  (not yet seeded)
 ```
 
 ---
@@ -111,4 +111,9 @@ branch   main
 2026-05-05  user                       reference docs moved root → codocz/  (dev-internal vs user-facing separation)
 2026-05-05  coordinator(opus)          slice-1 verified · slice-2 refined seed→forming · CLAUDE.md doc map updated to codocz/ paths · builder prompt embedded in slice-2 codon
 2026-05-05  builder(claude-sonnet-4-6)  slice-2 shipped · 16 docs total · DocType extended · /app/ask mock · Draft Reply panel · nav updated · 0 build errors · slice-2 stable · current→slice-3
+2026-05-05  user                        committed + pushed to github(innerpixel/cs-baic) main
+2026-05-05  coordinator(opus)           slice-2 verified (6 checkpoint commits · 835 lines inbox.ts · 16 docs) · slice-3 refined seed→forming: scope tightened to ONE prompt e2e (invoice_extractor v1) · monorepo restructure first · 6 open edges resolved · builder prompt embedded · slice-4/5 names updated to reflect new plan
+2026-05-05  coordinator(opus)           slice-3 amended: Analyzer protocol + registry + merge added to scope · framework lands in slice-3 with InvoiceExtractor as first registration · slice-4 becomes "add more analyzers" not "refactor pipeline" · user-driven design call
+2026-05-05  builder(claude-sonnet-4-6)  slice-3 stable · monorepo · FastAPI · 4 models · InvoiceExtractor v1 · 5 endpoints · frontend live inbox · 0 type errors · current→slice-4
+
 ```

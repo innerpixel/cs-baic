@@ -53,12 +53,25 @@ The reference docs do not change often. The codons in `ops/` change every sessio
 
 ## Common operations
 
+**Postgres (infra/):**
 ```sh
-npm run dev       # dev server at localhost:5173
-npm run build     # production build
-npm run check     # svelte-check type check
+cd infra && docker compose up -d postgres
 ```
 
-Stack: SvelteKit · Svelte 5 · TypeScript · Tailwind v4
-Routes: `/` · `/demo` · `/app/inbox`
-Mock data: `src/lib/data/inbox.ts`
+**API (apps/api/):**
+```sh
+cd apps/api && uv run alembic upgrade head
+cd apps/api && uv run uvicorn app.main:app --reload   # :8000
+cd apps/api && uv run python scripts/seed_invoices.py  # seed demo data
+```
+
+**Frontend (apps/web/):**
+```sh
+cd apps/web && npm run dev    # :5173
+cd apps/web && npm run build
+cd apps/web && npm run check  # svelte-check
+```
+
+Stack: SvelteKit · Svelte 5 · TypeScript · Tailwind v4 · FastAPI · SQLAlchemy · Alembic · PostgreSQL
+Routes: `/` · `/demo` · `/app/inbox` (live, API) · `/app/ask` (mock)
+Mock data: `apps/web/src/lib/data/inbox.ts`
