@@ -1,12 +1,23 @@
+# Dependencies
 node_modules
 
-# Output
+# SvelteKit build output
+.svelte-kit
 .output
+build
 .vercel
 .netlify
 .wrangler
-/.svelte-kit
-/build
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+.venv
+apps/api/.venv
+
+# Compiled output
+dist
 
 # OS
 .DS_Store
