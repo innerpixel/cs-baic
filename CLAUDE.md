@@ -62,7 +62,9 @@ cd infra && docker compose up -d postgres
 ```sh
 cd apps/api && uv run alembic upgrade head
 cd apps/api && uv run uvicorn app.main:app --reload   # :8000
-cd apps/api && uv run python scripts/seed_invoices.py  # seed demo data
+cd apps/api && uv run python scripts/seed_demo.py      # seed 7-doc demo set (invoices + contract + accountant email)
+cd apps/api && uv run python -m app.evals.run          # run eval harness (all fixtures × analyzers)
+cd apps/api && uv run python -m app.evals.run --fixture invoice_lumina --analyzer invoice_extractor
 ```
 
 **Frontend (apps/web/):**

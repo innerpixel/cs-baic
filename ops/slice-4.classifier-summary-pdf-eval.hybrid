@@ -1,0 +1,360 @@
+---
+id: slice-4.classifier-summary-pdf-eval
+type: build-slice
+domain: bca.ai + bca.backend + bca.frontend
+agreement: bca.build-roadmap
+state: stable
+density: L2.5
+---
+
+# Slice 4 · Three More Analyzers · PDF · Evaluation
+
+*Prove the analyzer framework scales · classifier + summarizer + contract reviewer · accept PDFs · keep AI honest with an eval harness*
+
+---
+
+## Why
+
+Slice-3 proved the analyzer framework with one registered class. Slice-4 proves it scales: adding three more analyzers should be *boring* — small new files, no pipeline edits. If anything stops being boring, the framework abstraction was wrong.
+
+Three concrete UX wins land for the user this slice:
+- Summaries appear on cards (slice-2 UI has the slot, currently empty)
+- Urgency populates from analysis (currently null)
+- Contracts get specialized review surfacing payment terms, penalties, risks
+
+PDF support unlocks real-world testing — pilot SMEs work with PDFs, not pasted text.
+The eval harness is the discipline that prevents drift as more analyzers ship: each fixture has expected output, every analyzer runs against it on every change, hallucinations stay caught.
+
+---
+
+## Scope
+
+```
+IN     three new analyzers
+         DocumentClassifier      prompt 19.14 · applies_to=ALL · records detected_type/confidence/language/entities
+                                 does NOT override user-selected Document.type yet (slice-5 enables override)
+         DocumentSummarizer      prompt 19.15 · applies_to=ALL · writes summary/urgency/key_points/deadlines/obligations
+         ContractReviewer        prompt 19.17 · applies_to={"contract"} · payment_terms/penalties/termination/risk
+
+       schema additions          DocumentAnalysis gets:
+                                   detected_type      VARCHAR · null
+                                   confidence         FLOAT    · null
+                                   language           VARCHAR · null
+                                   urgency            VARCHAR · null
+                                   analyzer_outputs   JSONB    · null   (full parsed output keyed by analyzer name)
+                                 alembic migration · existing rows nullable
+
+       merge extension           merge.py grows isinstance dispatch for ClassifierResult, SummaryResult, ContractResult
+                                 list-shaped fields combine across analyzers (risk_flags, missing_fields)
+                                 scalar fields use first-non-null wins OR analyzer-priority order
+                                 analyzer_outputs[<name>] always stored full
+
+       PDF parsing               apps/api/app/services/parsing.py · pdfplumber
+                                 POST /api/documents accepts .pdf (multipart file field) OR text (existing)
+                                 PDF → extract text → save raw_text on Document → analyzers run on raw_text
+                                 image-only PDFs (no extractable text): status="not_supported_yet" + audit "ocr_required"
+
+       eval harness              apps/api/tests/evals/  (new directory)
+                                 fixtures from codocz §23.3 (4 fully-written demo docs · expected_extraction blocks)
+                                 per-analyzer evaluation runner
+                                 scoring per codocz §23.6: score 0-10 · passed bool · critical_errors · hallucinations · missing_information
+                                 cli: uv run python -m app.evals.run · prints summary + writes JSON
+                                 must catch the slice-3 finding: PO-reference omission in Lumina invoice
+
+       seed extension            seed_invoices.py adds: 1 contract (contract_supplier_lumina_design) · 1 client email
+                                 (email_accountant_missing_docs_april) so summarizer/classifier have variety to chew on
+
+       frontend surfaces         /app/inbox card shows:
+                                   summary text (existing slot · now populated)
+                                   urgency badge (existing slot · now populated)
+                                   "AI-classified as X (78%)" badge if confidence ≥ 0.6 AND
+                                     detected_type differs from user-selected Document.type
+                                   for type=contract: dedicated "Contract terms" panel (collapsible)
+
+OUT    classifier overriding doc.type            slice-5
+       OCR (image-only PDFs)                     slice-5
+       parallel analyzer execution               later · serial is fine for slice-4
+       RAG / pgvector / embeddings               slice-5
+       Ask My Company live                       slice-5
+       Draft Reply live                          slice-5
+       multi-language UI                         post-MVP
+       evaluation against real provider drift    slice-N · for now compare to expected outputs
+       eval harness in CI                        slice-N · cli only for now
+```
+
+---
+
+## Acceptance
+
+```
+analyzers          three new analyzer files · each implements Protocol · each registered in registry.ANALYZERS
+                   analyzers_for(supplier_invoice doc) returns [InvoiceExtractor, DocumentClassifier, DocumentSummarizer]
+                   analyzers_for(contract doc)         returns [DocumentClassifier, DocumentSummarizer, ContractReviewer]
+
+schema             alembic upgrade head adds 5 columns to document_analyses · existing rows preserved (nullable)
+
+pipeline           upload one of the 5 existing invoices  →  3 prompt_runs (extractor + classifier + summarizer)
+                   upload contract_supplier_lumina_design  →  3 prompt_runs (classifier + summarizer + contract reviewer)
+                   each prompt_run records its analyzer_name + version + status
+
+extraction         all existing slice-3 fields still extract correctly (regression check)
+                   summary populates with 1-2 sentence English text
+                   urgency one of low/medium/high/unknown
+                   for contracts: payment_terms · penalties · termination_terms in analyzer_outputs.contract_reviewer
+                   classifier records language ("ro" for the Romanian docs · "en" or "mixed" for English UI ones)
+
+PDF                upload a text-PDF (provide one in tests/fixtures/) → text extracted → analyzers run as expected
+                   image-only PDF → status="not_supported_yet" · audit event "ocr_required"
+
+UI                 inbox card shows summary text and urgency badge (visible from listing)
+                   detail panel shows full analyzer_outputs nicely (per-analyzer expandable section is fine)
+                   contract docs show Contract terms panel
+                   classifier disagreement badge appears only when justified
+
+eval harness       uv run python -m app.evals.run
+                   exits 0 if all fixtures pass acceptance threshold (score ≥ 7 · no critical_errors · no hallucinations)
+                   exits non-zero on regressions
+                   catches: invoice_lumina missing PO-reference (the slice-3 verification finding)
+                   prints concise summary + writes apps/api/tests/evals/results/<timestamp>.json
+
+honesty            no hallucinated values · ever
+                   classifier "unknown" allowed when uncertain (not forced into a wrong bucket)
+                   contract questions_for_human_review surfaced when LLM is unsure about a clause
+```
+
+---
+
+## Constraints inherited
+
+See `ops/rules.constraints.hybrid` (anchored). Slice-4 specific reinforcement:
+- Every new prompt template carries inline `# prompt: <name> v1`. Do not reuse v1 across different prompts.
+- Provider abstraction: still one place to import `openai`. New analyzers call `app/services/llm.py`.
+- Analyzer registry: new analyzers MUST register; pipeline never special-cases.
+- Eval harness must use the same prompt loader the runtime uses (no duplication of prompt text).
+
+---
+
+## Resolved decisions (coordinator)
+
+```
+classifier override         classifier records detected_type/confidence ONLY in slice-4
+                            user-selected Document.type stays authoritative
+                            UI shows disagreement badge as a soft signal · slice-5 designs override flow
+
+multi-analyzer order        serial · order = ANALYZERS list order
+                            for slice-4: classifier → summarizer → extractor (or reviewer)
+                            rationale: cheap signals first; if classifier sets language="unknown" we
+                            could short-circuit summarizer in future, but not yet
+
+merge strategy              analyzer_outputs JSONB always stores full · single source of truth
+                            scalar columns (summary, urgency, suggested_action) populated by merger
+                              from agreed analyzer-priority order
+                              summarizer wins for summary/urgency/suggested_action
+                              extractor wins for fields/missing_fields/risk_flags
+                              contract reviewer adds to risk_flags · adds questions_for_human_review
+                            list combine semantics: dedup-by-content union (no duplicates)
+
+PDF library                 pdfplumber · text-PDFs only · image-only PDFs flagged "ocr_required"
+                            do NOT introduce a PDF.js wrapper or pypdf · one library per concern
+
+eval scoring                per codocz §23.6 schema · 0-10 score · passed bool · separate fields for
+                            critical_errors / hallucinations / missing_information / format_errors
+                            pass threshold: score ≥ 7 AND len(critical_errors)==0 AND len(hallucinations)==0
+                            slice-4 fixtures: 4 from §23.3 (lumina invoice + accountant email +
+                            apartament email + lumina contract) · others can be added later
+
+eval CLI runner             cli first · pytest integration deferred · keep it dependency-light
+                            command: uv run python -m app.evals.run [--analyzer NAME] [--fixture NAME]
+
+prompt versioning           all three new prompts ship as v1 · inline version line enforced
+                            eval results always include prompt_version per result row
+
+frontend                    slice-2 UI already has summary/urgency slots · just wire them
+                            new: classifier disagreement badge (only when confidence ≥0.6 AND mismatch)
+                            new: contract terms panel (only when type=contract AND analyzer_outputs.contract_reviewer present)
+
+reseed required             after schema migration, drop existing 5 rows · reseed (now 7 docs)
+                            5 invoices + 1 contract + 1 accountant email
+```
+
+---
+
+## Files to be created
+
+```
+apps/api/app/analyzers/classifier.py        DocumentClassifier
+apps/api/app/analyzers/summarizer.py        DocumentSummarizer
+apps/api/app/analyzers/contract_reviewer.py ContractReviewer
+apps/api/app/prompts/classifier_v1.txt
+apps/api/app/prompts/summarizer_v1.txt
+apps/api/app/prompts/contract_reviewer_v1.txt
+apps/api/app/schemas/classification.py      Classification
+apps/api/app/schemas/summary.py             Summary
+apps/api/app/schemas/contract.py            ContractReview
+apps/api/app/services/parsing.py            parse_pdf(bytes) -> str | PdfParseResult
+apps/api/alembic/versions/<n>_slice4_analysis_columns.py   migration
+apps/api/app/evals/                          new package
+apps/api/app/evals/__init__.py
+apps/api/app/evals/runner.py                 main eval logic
+apps/api/app/evals/fixtures.py               4 fixtures with expected outputs
+apps/api/app/evals/scoring.py                §23.6 score schema
+apps/api/app/evals/run.py                    cli entrypoint
+apps/api/tests/fixtures/sample_invoice.pdf   text-PDF for parsing tests
+apps/api/tests/fixtures/image_only.pdf       image-only PDF for OCR fallback test (or document missing)
+apps/web/src/lib/components/ContractTermsPanel.svelte   new
+apps/web/src/lib/components/ClassifierBadge.svelte      new (or inline · builder choice)
+```
+
+---
+
+## Builder prompt
+
+Copy this into a fresh IDE session (Sonnet) at `/home/innerpixel/dev/sme-companion`:
+
+```text
+Read CLAUDE.md, ops/project.state.hybrid, ops/rules.constraints.hybrid, ops/slice-4.classifier-summary-pdf-eval.hybrid, then codocz/romanian_sme_ai_companion_prompt_pack.md (§19.14 classifier · §19.15 summary · §19.17 contract review) and codocz/romanian_sme_ai_companion_project_control_pack.md §23.3 (fixtures) and §23.6 (eval scoring).
+
+You are the builder for slice-4. Coordinator (opus) verified slice-3 hotfix end-to-end on 2026-05-05. Your job: prove the analyzer framework scales. If anything stops being boring while adding the three new analyzers, stop and report — the abstraction was wrong.
+
+Commit at every numbered checkpoint. Stop and report if a step blocks.
+
+Tasks:
+
+1. SCHEMA MIGRATION.
+   - Add 5 columns to document_analyses: detected_type (VARCHAR), confidence (FLOAT), language (VARCHAR), urgency (VARCHAR), analyzer_outputs (JSONB). All nullable.
+   - alembic revision --autogenerate -m "slice-4 analysis columns"
+   - Inspect generated migration; adjust if needed (e.g., JSONB type).
+   - alembic upgrade head — verify columns exist · existing rows untouched.
+   Commit: "slice-4(schema): 5 new columns on document_analyses for classifier+summarizer+contract"
+
+2. NEW SCHEMAS.
+   - apps/api/app/schemas/classification.py: Pydantic Classification matching codocz §19.14 JSON shape (document_type, confidence, reason, language, detected_entities {company_names, people_names, dates, amounts, emails}). Apply the same defensive coercer pattern from extraction.py for any numeric fields.
+   - apps/api/app/schemas/summary.py: Summary matching §19.15 (short_summary, key_points list, deadlines list, amounts list, obligations list, missing_information list, recommended_next_action, urgency enum).
+   - apps/api/app/schemas/contract.py: ContractReview matching §19.17.
+   Commit: "slice-4(schema): Classification + Summary + ContractReview Pydantic models"
+
+3. NEW PROMPTS.
+   - apps/api/app/prompts/classifier_v1.txt: first line "# prompt: classifier v1", body adapted from §19.14, {{DOCUMENT_TEXT}} placeholder.
+   - apps/api/app/prompts/summarizer_v1.txt: first line "# prompt: summarizer v1", body from §19.15.
+   - apps/api/app/prompts/contract_reviewer_v1.txt: first line "# prompt: contract_reviewer v1", body from §19.17.
+   - Each prompt should also include the Number Formatting rule from invoice_extractor v1's hotfix (numbers as decimal-strings, quantities as int-strings, null for missing) — analyzers may emit numeric values too.
+   Commit: "slice-4(prompts): classifier · summarizer · contract_reviewer v1 templates"
+
+4. NEW ANALYZERS.
+   - apps/api/app/analyzers/classifier.py: DocumentClassifier. applies_to = set of ALL DocType values (use the enum). run() loads classifier_v1.txt, calls llm.complete, parses JSON, validates against Classification, returns AnalyzerResult.
+   - apps/api/app/analyzers/summarizer.py: DocumentSummarizer. applies_to = set of ALL DocType values. Same shape.
+   - apps/api/app/analyzers/contract_reviewer.py: ContractReviewer. applies_to = {DocType.CONTRACT}.
+   - Register all three in app/analyzers/registry.py ANALYZERS list. Order: [DocumentClassifier(), DocumentSummarizer(), InvoiceExtractor(), ContractReviewer()].
+   Commit: "slice-4(analyzers): classifier + summarizer + contract_reviewer registered"
+
+5. EXTEND MERGE.
+   - app/analyzers/merge.py: extend merge_into_analysis to handle ClassifierResult (writes detected_type, confidence, language; appends detected_entities into analyzer_outputs[classifier]), SummaryResult (writes summary, urgency, suggested_action; stores full into analyzer_outputs[summarizer]), ContractResult (appends to risk_flags; stores full into analyzer_outputs[contract_reviewer]; appends questions_for_human_review).
+   - Always store the full parsed_output into analyzer_outputs[<analyzer.name>] (single source of truth).
+   - List-combine semantics: dedup-by-content union for risk_flags, missing_fields.
+   - Test mentally: for an invoice doc, after all 3 applicable analyzers run, the analysis has populated fields/missing_fields/risk_flags (extractor) + summary/urgency (summarizer) + detected_type/confidence/language (classifier) + analyzer_outputs has 3 keys.
+   Commit: "slice-4(merge): isinstance dispatch for 3 analyzer result types"
+
+6. PDF PARSING.
+   - apps/api/pyproject.toml: add pdfplumber dependency. uv sync.
+   - apps/api/app/services/parsing.py: parse_pdf(file_bytes: bytes) -> tuple[str, dict] returns (extracted_text, metadata). If no extractable text (e.g., image-only PDF), raise NoExtractableTextError or return ("", {"reason": "ocr_required"}). Builder picks; document the choice in patchlog.
+   - apps/api/app/api/documents.py: POST /api/documents now accepts EITHER a "text" form field (existing) OR a "file" upload field. If "file" present and content_type=="application/pdf", call parse_pdf. If extraction yields no text: save Document with status="not_supported_yet", append AuditEvent "ocr_required", return 202. Otherwise proceed normally.
+   - apps/api/tests/fixtures/sample_invoice.pdf: create a text-PDF using a small Python helper script (reportlab or fpdf) that generates a PDF version of one of the existing invoice texts. If creating an image-only fixture is hard, just document its absence.
+   Commit: "slice-4(pdf): pdfplumber + accept .pdf upload + image-only fallback"
+
+7. EVAL HARNESS.
+   - apps/api/app/evals/scoring.py: EvalScore Pydantic model per codocz §23.6 (score 0-10, passed bool, critical_errors list, minor_errors list, hallucinations list, missing_information list, format_errors list, notes).
+   - apps/api/app/evals/fixtures.py: dict of fixture_id → {input_text, doc_type, expected: {analyzer_name → expected_output_dict}}. Hand-port the four §23.3 fixtures (invoice_lumina, accountant_email, apartament_email, contract_lumina). Expected outputs come from the "Expected extraction" / "Expected summary" blocks in §23.3.
+   - apps/api/app/evals/runner.py: function evaluate(fixture, analyzer) -> EvalScore. Load prompt, run analyzer, compare each expected key against actual:
+       missing keys → critical_errors entries
+       wrong type → critical_errors
+       value differs in monetary/date/CUI → critical_errors (treat as hallucination if value not in input_text at all)
+       value differs in freeform field → minor_errors
+   - apps/api/app/evals/run.py: CLI. Iterate fixtures × applicable analyzers. Print summary table. Write apps/api/tests/evals/results/<utc_iso>.json. Exit 0 if all pass threshold (score ≥7, no critical_errors, no hallucinations), else non-zero.
+   - The Lumina invoice fixture's expected_extraction.missing_fields should include "internal purchase order reference" — the eval should catch a v1 omission of this signal (live verification on 2026-05-05 missed it). It's OK if v1 fails this — that's the harness doing its job.
+   Commit: "slice-4(evals): scoring + fixtures + runner + cli"
+
+8. SEED EXTENSION.
+   - scripts/seed_invoices.py → either rename to seed_demo.py or add a second seed function. Seeds:
+       * 5 existing invoices (already wired)
+       * 1 contract (contract_supplier_lumina_design, type=contract) — content from apps/web/src/lib/data/inbox.ts
+       * 1 accountant email (email_accountant_missing_docs_april, type=accountant_request) — content from inbox.ts
+   - Wipe + reseed. Run: uv run python scripts/seed_demo.py (or whatever name).
+   - Verify: GET /api/documents returns 7 rows, all status="done".
+   Commit: "slice-4(seed): 7-doc demo set (invoices + contract + accountant email)"
+
+9. FRONTEND.
+   - apps/web/src/lib/components/ClassifierBadge.svelte (or inline): renders only when analysis.confidence ≥ 0.6 AND analysis.detected_type !== document.type. Shows "AI-classified as <type> (<confidence%>)".
+   - apps/web/src/lib/components/ContractTermsPanel.svelte: collapsible. Renders only when type==='Contract' (or contract) AND analyzer_outputs.contract_reviewer present. Sections for payment_terms, penalties, termination_terms, questions_for_human_review.
+   - apps/web/src/routes/app/inbox/+page.svelte (or wherever cards render):
+       * Summary text shows on card listing if analysis.summary present (was empty before slice-4).
+       * Urgency badge shows analysis.urgency.
+       * Open detail: ClassifierBadge appears at top if applicable. ContractTermsPanel appears for contracts.
+   - npm run check: 0 errors.
+   Commit: "slice-4(web): summary + urgency on cards · classifier badge · contract terms panel"
+
+10. ACCEPTANCE PASS.
+    - Manually walk every line of slice-4 §Acceptance.
+    - Run the eval harness: uv run python -m app.evals.run
+    - Capture eval summary in patchlog (which fixtures pass, which fail and why).
+    - npm run check (web) and any python type-check you set up.
+
+11. SHIP.
+    - Append ONE PATCHLOG line to ops/slice-4.classifier-summary-pdf-eval.hybrid (timestamp · model · summary · which fixtures passed/failed · eval pass-rate).
+    - Update STATE in slice-4 frontmatter from "forming" to "stable".
+    - Append ONE PATCHLOG line to ops/project.state.hybrid; update §Now (current → slice-5) and §Slices (slice-4 → stable).
+    - Update CLAUDE.md §Common operations with eval-runner command.
+    - Final commit: "slice-4: codon shipped · 3 new analyzers · PDF · eval harness · state→stable"
+
+Hard rules (do not violate):
+- inline prompt version line on every NEW prompt template
+- never bypass the analyzer registry · pipeline still dispatches via analyzers_for(doc)
+- never call provider SDK outside app/services/llm.py
+- no auto-override of user-selected Document.type · classifier records only
+- no Send button anywhere · ever
+- no real or hallucinated CUI/IBAN/amounts · synthetic only
+- the eval harness must use the SAME prompt loader the runtime uses (no copy-paste of prompt text into fixtures)
+- if a new analyzer's pipeline integration requires editing app/services/analysis.py (the dispatcher), STOP — that means the framework abstraction is wrong; report back so coordinator can fix the abstraction first
+
+Confirm the plan in 3 lines, then start with task 1.
+```
+
+---
+
+## State
+
+```
+state     forming
+gravity   HIGH (proves framework scales · adds visible UX wins · gates pilot demos)
+topology  defined → in-progress → shipped
+```
+
+---
+
+## Open edges
+
+```
+- pdfplumber edge cases on Romanian docs   builder catches in fixtures · note in patchlog
+- multi-analyzer ordering decisions        slice-4 keeps serial · revisit if latency hurts
+- classifier override flow                 slice-5 designs · slice-4 records only
+- eval threshold tuning (score ≥7)         empirical · adjust after first eval pass
+- whether eval results go to git or remain local-only (gitignore tests/evals/results/)
+- whether to introduce pytest now or stay CLI-only       cli first · pytest when test count justifies
+```
+
+---
+
+## Patchlog
+
+```
+2026-05-05  coordinator(opus)  seeded · refine after slice-3 ships
+2026-05-05  coordinator(opus)  refined seed→forming · 3 analyzers + PDF + eval harness scoped ·
+                               schema additions resolved · merge strategy chosen ·
+                               builder prompt embedded · 11 commit checkpoints
+2026-05-05  builder(claude-sonnet-4-6)  slice-4 shipped · 3 new analyzers (classifier+summarizer+
+                               contract_reviewer) · 5 schema columns · pdfplumber PDF parsing ·
+                               eval harness (10 cases) · seed extended to 7 docs · frontend:
+                               urgency badge + classifier badge + contract terms panel ·
+                               eval result 9/10 pass · 1 intentional fail (invoice_extractor
+                               PO-reference miss — harness correctly catches it) ·
+                               rate-limit 429s are transient infrastructure · state→stable
+```

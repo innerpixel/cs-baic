@@ -15,7 +15,7 @@ from pathlib import Path
 from app.evals.runner import run_all
 from app.evals.scoring import EvalScore
 
-RESULTS_DIR = Path(__file__).parent.parent.parent.parent / "tests" / "evals" / "results"
+RESULTS_DIR = Path(__file__).parent.parent.parent / "tests" / "evals" / "results"
 
 
 def _fmt_row(s: EvalScore) -> str:

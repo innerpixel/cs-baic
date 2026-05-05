@@ -17,8 +17,8 @@ density: L2.5
 
 ```
 phase      1
-current    slice-4.classifier-summary-pdf-eval
-next       slice-5.rag-ask-reply-ocr
+current    slice-5.rag-ask-reply-ocr  (not yet seeded)
+next       —
 blocked    —
 ```
 
@@ -46,7 +46,7 @@ Coordinator owns sequence and prompts. Builder owns code.
 slice-1  homepage + inbox mock                       stable     gravity HIGH
 slice-2  demo-data + ask + reply mocks               stable     gravity HIGH
 slice-3  monorepo + fastapi + invoice extractor e2e  stable          5/5 invoices extracted clean
-slice-4  classifier + summary + PDF + eval harness   (not yet seeded · gated on hotfix)
+slice-4  classifier + summary + PDF + eval harness   stable     9/10 eval pass · PO-ref miss caught
 slice-5  RAG (pgvector) + Ask live + Draft live + OCR  (not yet seeded)
 ```
 
@@ -118,5 +118,7 @@ branch   main
 2026-05-05  user                         ran setup + seed (5 docs in API)
 2026-05-05  coordinator(opus)            live verification revealed schema/LLM mismatch · all 5 extractions failed Pydantic (numeric fields declared str · LLM returned numbers) · secondary status-propagation bug · slice-3 §Hotfix section added with builder prompt · slice-4 gated until hotfix ships
 2026-05-05  builder(claude-sonnet-4-6)  slice-3 hotfix shipped · schema coercers + prompt nudge + status propagation · 5/5 invoices status=done · clean extraction verified · slice-3 truly stable · current→slice-4
+2026-05-05  coordinator(opus)            hotfix verification confirmed via API: Lumina extraction matches §23.3 expected (3046.40 RON · 12.05.2026 · LD 0041 · etc) · 1 minor accuracy gap noted (LLM caught missing supplier_vat_number but missed PO-reference freeform note) · added to slice-4 eval scope as a regression-catching fixture · slice-4 refined seed→forming: 3 new analyzers (classifier+summarizer+contract reviewer) · 5 new schema columns · pdfplumber · eval harness per §23.6 · 11 commit checkpoints · framework abstraction will be tested by adding 3 analyzers as drop-in files (no pipeline edits)
+2026-05-05  builder(claude-sonnet-4-6)  slice-4 shipped · 3 new analyzers as drop-in files (no analysis.py dispatch edits — abstraction held) · 5 schema columns · pdfplumber · 7-doc seed · eval harness 9/10 (1 intentional fail: PO-ref) · frontend: urgency+classifier badge+contract terms · state→stable · current→slice-5
 
 ```
