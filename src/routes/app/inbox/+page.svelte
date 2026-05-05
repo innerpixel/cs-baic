@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { INBOX_DOCS, type InboxDoc } from '$lib/data/inbox.js';
+	import { INBOX_DOCS } from '$lib/data/inbox.js';
+	import { DRAFT_REPLIES } from '$lib/data/replies.js';
 
 	let selectedId = $state<string>(INBOX_DOCS[0].id);
 
@@ -21,6 +22,50 @@
 
 	function archive(id: string) {
 		approvalStates[id] = 'Archived';
+	}
+
+	// Draft Reply state per doc
+	type DraftState = 'suggested' | 'editing' | 'approved' | 'discarded';
+	let draftStates = $state<Record<string, DraftState>>({});
+	let draftEdits = $state<Record<string, string>>({});
+	let draftAuditEvents = $state<Record<string, { timestamp: string; event: string }[]>>({});
+
+	function getDraftReply(docId: string) {
+		return DRAFT_REPLIES.find((r) => r.docId === docId) ?? null;
+	}
+
+	function getDraftState(docId: string): DraftState {
+		return draftStates[docId] ?? 'suggested';
+	}
+
+	function getDraftBody(docId: string): string {
+		if (draftEdits[docId] !== undefined) return draftEdits[docId];
+		return getDraftReply(docId)?.body ?? '';
+	}
+
+	function approveDraft(docId: string) {
+		draftStates[docId] = 'approved';
+		const ts = new Date().toISOString().slice(0, 16).replace('T', ' ');
+		draftAuditEvents[docId] = [
+			...(draftAuditEvents[docId] ?? []),
+			{ timestamp: ts, event: 'Draft reply approved by user — ready to send manually' }
+		];
+	}
+
+	function startEdit(docId: string) {
+		if (draftEdits[docId] === undefined) {
+			draftEdits[docId] = getDraftReply(docId)?.body ?? '';
+		}
+		draftStates[docId] = 'editing';
+	}
+
+	function discardDraft(docId: string) {
+		draftStates[docId] = 'discarded';
+		const ts = new Date().toISOString().slice(0, 16).replace('T', ' ');
+		draftAuditEvents[docId] = [
+			...(draftAuditEvents[docId] ?? []),
+			{ timestamp: ts, event: 'Draft reply discarded by user' }
+		];
 	}
 </script>
 
@@ -213,6 +258,89 @@
 		</div>
 	</section>
 
+	<!-- Draft Reply panel — only for Client Request docs that have a canned reply -->
+	{#if selected.type === 'Client Request' && getDraftReply(selected.id) !== null}
+		{@const reply = getDraftReply(selected.id)!}
+		{@const ds = getDraftState(selected.id)}
+		<section
+			style="background: var(--color-data); border: 1px solid var(--color-stroke); border-left: 3px solid var(--color-urgency-medium); border-radius: 8px; padding: 16px 20px; margin-bottom: 16px;"
+		>
+			<div
+				style="font-size: 11px; color: var(--color-urgency-medium); letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 10px;"
+			>
+				Draft Reply
+				{#if ds === 'approved'}
+					<span
+						style="margin-left: 8px; color: var(--color-urgency-low); background: var(--color-main); border: 1px solid var(--color-stroke); border-radius: 3px; padding: 1px 7px; font-size: 10px;"
+						>Approved</span
+					>
+				{/if}
+			</div>
+
+			{#if ds === 'discarded'}
+				<p style="font-size: 13px; color: var(--color-text-muted); margin: 0;">
+					Draft reply was discarded.
+				</p>
+			{:else}
+				<div style="margin-bottom: 10px;">
+					<div style="font-size: 11px; color: var(--color-text-muted); margin-bottom: 4px; letter-spacing: 0.04em; text-transform: uppercase;">
+						Subject
+					</div>
+					<div style="font-size: 13px; color: var(--color-text);">{reply.subject}</div>
+				</div>
+
+				<div>
+					<div style="font-size: 11px; color: var(--color-text-muted); margin-bottom: 6px; letter-spacing: 0.04em; text-transform: uppercase;">
+						Body
+					</div>
+					{#if ds === 'editing'}
+						<textarea
+							bind:value={draftEdits[selected.id]}
+							rows={14}
+							style="width: 100%; background: var(--color-main); border: 1px solid var(--color-stroke-light); border-radius: 5px; padding: 10px 14px; font-size: 13px; color: var(--color-text); font-family: inherit; line-height: 1.6; resize: vertical; box-sizing: border-box; outline: none;"
+						></textarea>
+						<p style="font-size: 11px; color: var(--color-text-muted); margin: 6px 0 0;">
+							Changes are local only — they will not be saved or sent.
+						</p>
+					{:else}
+						<pre
+							style="font-size: 13px; color: var(--color-text); font-family: inherit; white-space: pre-wrap; word-break: break-word; margin: 0; line-height: 1.65; background: var(--color-main); border: 1px solid var(--color-stroke); border-radius: 5px; padding: 12px 14px;"
+						>{getDraftBody(selected.id)}</pre>
+					{/if}
+				</div>
+
+				{#if ds !== 'approved'}
+					<div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px;">
+						<button
+							onclick={() => approveDraft(selected.id)}
+							style="background: var(--color-urgency-low); color: var(--color-main); border: none; padding: 8px 18px; border-radius: 5px; font-size: 13px; cursor: pointer; font-weight: 500;"
+						>
+							Approve
+						</button>
+						{#if ds !== 'editing'}
+							<button
+								onclick={() => startEdit(selected.id)}
+								style="background: var(--color-action); color: var(--color-text); border: 1px solid var(--color-stroke); padding: 8px 18px; border-radius: 5px; font-size: 13px; cursor: pointer;"
+							>
+								Edit locally
+							</button>
+						{/if}
+						<button
+							onclick={() => discardDraft(selected.id)}
+							style="background: transparent; color: var(--color-text-muted); border: 1px solid var(--color-stroke); padding: 8px 18px; border-radius: 5px; font-size: 13px; cursor: pointer;"
+						>
+							Discard
+						</button>
+					</div>
+				{:else}
+					<p style="font-size: 13px; color: var(--color-urgency-low); margin: 12px 0 0;">
+						Draft approved. Copy the text above and send it manually.
+					</p>
+				{/if}
+			{/if}
+		</section>
+	{/if}
+
 	<!-- Audit timeline -->
 	<section style="background: var(--color-data); border: 1px solid var(--color-stroke); border-radius: 8px; padding: 16px 20px; margin-bottom: 16px;">
 		<div style="font-size: 11px; color: var(--color-text-muted); letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 12px;">
@@ -252,6 +380,17 @@
 					</div>
 				</div>
 			{/if}
+			{#each (draftAuditEvents[selected.id] ?? []) as devt}
+				<div style="display: flex; gap: 14px; align-items: flex-start; padding: 8px 0; border-top: 1px solid var(--color-stroke);">
+					<div style="flex-shrink: 0; width: 8px; height: 8px; border-radius: 50%; background: var(--color-urgency-medium); margin-top: 5px;"></div>
+					<div>
+						<div style="font-size: 12px; color: var(--color-stroke-light); margin-bottom: 2px; font-family: monospace;">
+							{devt.timestamp}
+						</div>
+						<div style="font-size: 13px; color: var(--color-text);">{devt.event}</div>
+					</div>
+				</div>
+			{/each}
 		</div>
 	</section>
 
