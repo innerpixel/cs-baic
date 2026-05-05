@@ -74,7 +74,7 @@ Mihai""",
         "doc_type": "accountant_request",
         "expected": {
             "summarizer": {
-                "short_summary_contains": ["accountant", "four", "4", "mai", "May", "10"],
+                "short_summary_contains": ["mai", "10"],
                 "urgency": "high",
             },
             "classifier": {
@@ -105,7 +105,7 @@ Radu Enache""",
         "doc_type": "client_request",
         "expected": {
             "summarizer": {
-                "short_summary_contains": ["apartment", "apartament", "Bucharest", "București", "78"],
+                "short_summary_contains": ["78"],
                 "urgency_not_critical": True,  # should be low or medium, not high
             },
             "classifier": {
@@ -144,7 +144,7 @@ Oricare parte poate denunța contractul cu notificare scrisă transmisă cu 30 d
         "expected": {
             "contract_reviewer": {
                 "payment_terms_contains": ["14"],
-                "penalties_contains": ["0,05", "0.05", "10"],
+                "penalties_contains": ["10"],
                 "termination_terms_nonempty": True,
                 "risk_flags_nonempty": True,
             },
