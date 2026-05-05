@@ -23,12 +23,13 @@ def run_analysis(document_id: uuid.UUID, db: Session) -> None:
             event_type="not_supported_yet",
             event_data={"doc_type": doc.type},
         ))
-        doc.status = "done"
+        doc.status = "not_supported"
         db.commit()
         return
 
     analysis_data: dict = {}
     last_prompt_run_id: uuid.UUID | None = None
+    any_succeeded = False
 
     for analyzer in applicable:
         result = analyzer.run(doc)
@@ -63,6 +64,7 @@ def run_analysis(document_id: uuid.UUID, db: Session) -> None:
         ))
 
         if result.status == "success":
+            any_succeeded = True
             analysis_data = merge_into_analysis(analysis_data, result)
 
     existing = db.query(DocumentAnalysis).filter_by(document_id=document_id).first()
@@ -83,5 +85,5 @@ def run_analysis(document_id: uuid.UUID, db: Session) -> None:
             suggested_action=analysis_data.get("suggested_action"),
         ))
 
-    doc.status = "done"
+    doc.status = "done" if any_succeeded else "failed"
     db.commit()
