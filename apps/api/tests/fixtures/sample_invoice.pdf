@@ -1,0 +1,71 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>
+endobj
+4 0 obj
+<< /Length 738 >>
+stream
+BT
+/F1 12 Tf
+50 750 Td
+(Factura seria LD nr. 0041) Tj
+-2 -14 Td
+(Data emiterii: 28.04.2026) Tj
+-2 -14 Td
+(Furnizor: Lumina Design SRL) Tj
+-2 -14 Td
+(CUI: RO00000001) Tj
+-2 -14 Td
+(Client: Atelier Nova SRL) Tj
+-2 -14 Td
+(CUI Client: RO00000002) Tj
+-2 -14 Td
+() Tj
+-2 -14 Td
+(Produse:) Tj
+-2 -14 Td
+(1. Panouri LED decorative model Aurora, 12 buc, 185 RON/buc) Tj
+-2 -14 Td
+(2. Cablu alimentare si accesorii montaj, 1 set, 340 RON) Tj
+-2 -14 Td
+() Tj
+-2 -14 Td
+(Subtotal: 2.560 RON) Tj
+-2 -14 Td
+(TVA: 486,40 RON) Tj
+-2 -14 Td
+(Total de plata: 3.046,40 RON) Tj
+-2 -14 Td
+(Scadenta: 12.05.2026) Tj
+-2 -14 Td
+(IBAN: RO00BANK0000000000000001) Tj
+-2 -14 Td
+() Tj
+-2 -14 Td
+(Mentiune: Comanda interna nu este trecuta pe factura.) Tj
+-2 -14 Td
+ET
+endstream
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+xref
+0 6
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000241 00000 n 
+0000001030 00000 n 
+trailer
+<< /Size 6 /Root 1 0 R >>
+startxref
+1100
+%%EOF
