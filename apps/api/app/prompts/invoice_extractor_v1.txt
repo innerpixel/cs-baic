@@ -9,6 +9,7 @@ Rules:
 - Use null when a field is not found.
 - Preserve original currency and date format if uncertain.
 - Flag suspicious or missing data.
+- Return amounts as decimal strings (e.g., "3046.40"); return quantities as integer strings (e.g., "12"); use null for missing values.
 
 Schema:
 
