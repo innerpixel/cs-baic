@@ -1,7 +1,7 @@
 # Business Companion AI — Product Requirements Document
 
 **Status:** Living document — updated after each build slice  
-**Last updated:** 2026-05-05 · Slice 3 complete  
+**Last updated:** 2026-05-05 · Slice 4 complete  
 **Build phase:** Phase 1 — MVP
 
 ---
@@ -44,11 +44,14 @@ The central workspace. Each uploaded document or email becomes a structured card
 
 Each card shows:
 - Document type (invoice, contract, email, HR document, etc.)
-- Short summary
+- AI-detected type and confidence badge (when the AI's classification differs from the user-selected type and confidence ≥ 60%)
+- Short AI summary
+- Urgency level (high · medium · low) — set by the summarizer
 - Extracted fields (amounts, dates, names, CUI numbers)
 - Missing information the AI could not find
 - Risk flags
 - Suggested next action
+- Contract terms panel (collapsible — only for contract documents)
 - Human approval status
 - Full audit trail
 
@@ -83,13 +86,23 @@ The human reads the draft, edits it if needed, approves it, then sends it manual
 
 ### Module 4 — Document Extraction
 
-Pulls structured data from business documents.
+Pulls structured data from business documents. The extraction engine uses a pluggable Analyzer protocol. As of Slice 4, four analyzers are registered and run in this order for every applicable document:
 
-Invoice fields extracted today: supplier name, CUI, invoice number, date, due date, total amount, VAT, currency, IBAN, payment status, line items, missing fields, risk flags.
+1. **`DocumentClassifier v1`** — applies to all document types. Detects document type, confidence (0–1), language (ro/en/mixed/unknown), and named entities (companies, people, dates, amounts, emails). Does not override the user-selected type — records its finding as a soft signal.
 
-Planned for Slice 4: contract extraction, document summary, document classification.
+2. **`DocumentSummarizer v1`** — applies to all document types. Produces a short summary, urgency level, key points, deadlines, amounts, obligations, and suggested next action.
 
-**Status: LIVE for supplier invoices** — see [Document Extraction](#document-extraction-1) below
+3. **`InvoiceExtractor v1`** — applies to `supplier_invoice` only. Extracts: supplier name, CUI, VAT number, invoice number, dates, amounts, currency, IBAN, payment status, line items, missing fields, risk flags.
+
+4. **`ContractReviewer v1`** — applies to `contract` only. Extracts: parties, payment terms, penalties, termination terms, renewal clause, important dates, risk flags, and flags clauses for human review.
+
+For `supplier_invoice` documents: classifier + summarizer + invoice extractor run (3 prompt calls).  
+For `contract` documents: classifier + summarizer + contract reviewer run (3 prompt calls).  
+For all other types: classifier + summarizer run (2 prompt calls).
+
+**PDF upload:** Documents can be uploaded as text or as `.pdf` files. PDF text is extracted with `pdfplumber`. Image-only PDFs (no extractable text) are flagged as `not_supported_yet` — OCR is planned for Slice 5.
+
+**Status: LIVE** — all 4 analyzers active, all document types supported
 
 ---
 
@@ -100,8 +113,8 @@ Every AI suggestion is marked as a suggestion. Nothing is approved or sent autom
 Actions tracked:
 - Document uploaded
 - Document analyzed (by which analyzer, which prompt version)
+- `ocr_required` (for image-only PDF uploads)
 - Human approved
-- Human archived
 
 Every AI call is logged with: prompt name, prompt version, model used, input hash, raw output, parsed output, status (success or failed).
 
@@ -119,67 +132,86 @@ Explains to the company what the AI can and cannot do, what data it uses, and wh
 
 ## Current Build Status
 
-**As of Slice 3 (2026-05-05), this is what runs:**
+**As of Slice 4 (2026-05-05), this is what runs:**
 
 | What | Status | Where |
 |---|---|---|
 | Homepage | Live | `http://localhost:5173/` |
 | Demo workflow (Atelier Nova SRL) | Live — static | `http://localhost:5173/demo` |
-| AI Inbox — upload & extract | **Live — real AI** | `http://localhost:5173/app/inbox` |
+| AI Inbox — upload, classify, summarize, extract | **Live — real AI** | `http://localhost:5173/app/inbox` |
 | Ask My Company | Mock — static Q&A | `http://localhost:5173/app/ask` |
 | Draft Reply | Mock — static drafts | `http://localhost:5173/app/inbox` (on client requests) |
 | REST API | Live | `http://localhost:8000` |
-| Invoice extraction | **Live — Mistral** | via API |
+| Document classification | **Live — all types** | via API |
+| Document summarization | **Live — all types** | via API |
+| Invoice extraction | **Live — supplier_invoice** | via API |
+| Contract review | **Live — contract** | via API |
+| PDF text upload | **Live** | via API + UI |
+| Urgency badge | **Live** | inbox UI |
+| Classifier disagreement badge | **Live** | inbox UI |
+| Contract terms panel | **Live** | inbox UI |
 | Human approval | Live | via UI + API |
 | Audit log | Live | via UI + API |
+| Eval harness | **Live — CLI** | `uv run python -m app.evals.run` |
 | Database (Postgres) | Live | port 5432 |
+
+---
 
 ### AI Inbox
 
 The inbox connects to the live backend. You can:
 
-1. Paste any invoice text into the upload box, give it a filename and type, and submit
-2. The backend sends it to the AI (Mistral) using the `invoice_extractor v1` prompt
-3. Fields come back in ~5–10 seconds: supplier name, CUI, invoice number, dates, amounts, missing fields, risk flags
-4. The document shows a **LIVE** badge — it is backed by real AI extraction, not mock data
-5. Click Approve to record human sign-off — this creates an audit event
-6. The full audit timeline (uploaded → analyzed → approved) is visible on each document
+1. Paste document text (or upload a `.pdf` file), give it a filename and type, and submit
+2. The backend dispatches it to all applicable analyzers in order
+3. Within 5–15 seconds (depends on number of analyzers):
+   - A short AI summary appears at the top of the detail panel
+   - Urgency badge (high/medium/low) appears in the header
+   - A classifier badge appears if the AI detected a different type with ≥ 60% confidence
+   - Extracted fields are shown (for invoices: amounts, dates, CUI, etc.)
+   - Missing information and risk flags are listed
+   - For contracts: a collapsible "Contract Terms" panel shows payment terms, penalties, termination terms, and any clauses the AI flagged for human review
+4. Click Approve to record human sign-off — this creates an audit event
 
-The 16 demo documents from `/demo` (Atelier Nova SRL's mock workflow) are **not shown in the inbox** — they live only in the demo page. The inbox shows only documents that have been through the real pipeline.
+**7 demo documents** are seeded by `seed_demo.py`: 5 supplier invoices, 1 supplier contract, 1 accountant request email. All run through the full analyzer pipeline.
 
 ### Document Extraction
 
-The extraction engine uses a pluggable Analyzer protocol. Slice 3 ships one registered analyzer:
+Each analyzer run is logged in `prompt_runs` (prompt name, version, model, input SHA-256, raw output, parsed output, status). The full parsed output for every analyzer is stored in `document_analyses.analyzer_outputs` (JSONB), keyed by analyzer name — this is the single source of truth for any detail view that needs more than the merged scalar columns.
 
-**`invoice_extractor v1`** — handles `supplier_invoice` documents
+Merged scalar columns (always the current best value across all analyzers):
 
-Fields extracted:
-- `supplier_name` · `supplier_cui` · `supplier_vat_number`
-- `invoice_number` · `invoice_date` · `due_date`
-- `total_amount` · `vat_amount` · `currency` · `iban`
-- `payment_status` · `line_items[]`
-- `missing_fields[]` · `risk_flags[]` · `recommended_next_action`
+| Column | Source |
+|---|---|
+| `summary` | DocumentSummarizer |
+| `urgency` | DocumentSummarizer |
+| `suggested_action` | InvoiceExtractor (wins over summarizer when present) |
+| `fields` | InvoiceExtractor |
+| `missing_fields` | union of InvoiceExtractor + DocumentSummarizer |
+| `risk_flags` | union of InvoiceExtractor + ContractReviewer |
+| `detected_type` | DocumentClassifier |
+| `confidence` | DocumentClassifier |
+| `language` | DocumentClassifier |
+| `analyzer_outputs` | full per-analyzer output dict |
 
-If the AI cannot find a field, it returns `null` — it does not invent values. Missing fields are surfaced explicitly. If the AI response is not valid JSON, the run is marked `failed` with the error message stored — no silent retries.
+### Eval Harness
 
-Every extraction is logged: prompt name, prompt version, model, SHA-256 of the input, full raw output, parsed output.
+The eval harness runs the prompt battery against 4 known fixtures (from §23.3 of the project control pack) and scores each output. Results are written to `apps/api/tests/evals/results/<timestamp>.json`.
+
+```sh
+cd apps/api && uv run python -m app.evals.run
+# Optional: filter by fixture or analyzer
+uv run python -m app.evals.run --fixture invoice_lumina --analyzer invoice_extractor
+```
+
+**Current pass rate: 9/10.** The 1 expected failure: `invoice_extractor` misses the freeform PO-reference note on the Lumina invoice — this is a known LLM accuracy gap, caught by design, tracked for a future prompt revision.
+
+Pass threshold: score ≥ 7, zero critical errors, zero hallucinations.
 
 ### Demo page (`/demo`)
 
 The demo page shows a static walkthrough of the full product vision using Atelier Nova SRL — a synthetic Romanian interior design company (Pitești, 12 employees). This is the "product on a page" for pilots and sales conversations.
 
-It contains 16 documents:
-- 5 supplier invoices
-- 2 client request emails
-- 2 client update emails
-- 2 supplier contracts
-- 2 supplier offers
-- 1 accountant request email
-- 1 HR policy
-- 1 internal procedure
-- 1 price list
-
-All data is synthetic. No real CUI, IBAN, name, or company data.
+It contains 16 documents across all document types. All data is synthetic. No real CUI, IBAN, name, or company data.
 
 ---
 
@@ -195,9 +227,13 @@ infra/             Docker Compose (Postgres 16)
 
 **Backend → LLM:** A single adapter module (`app/services/llm.py`) wraps the OpenAI-compatible client. The provider is configured by three env vars — the same code works with Mistral, OpenAI, Ollama, or Groq.
 
-**Analyzer pipeline:** When a document is uploaded, a background task dispatches it to all registered analyzers via `analyzers_for(doc)`. Each analyzer runs its prompt, validates the JSON output against a Pydantic schema, and writes to `DocumentAnalysis`. New analyzers in future slices are added as new files — no pipeline refactoring needed.
+**Analyzer pipeline:** When a document is uploaded, a background task dispatches it to all registered analyzers via `analyzers_for(doc)`. Each analyzer runs its prompt, validates the JSON output against a Pydantic schema, and writes to `DocumentAnalysis` via `merge_into_analysis()`. New analyzers in future slices are added as new files in `app/analyzers/` and registered in `registry.py` — no pipeline refactoring needed (proven by adding 3 analyzers in Slice 4 with zero edits to `analysis.py`).
 
-**Database:** 4 tables — `documents` · `document_analyses` · `audit_events` · `prompt_runs`. Every AI call has a full row in `prompt_runs` with input hash, raw output, and status.
+**Database:** 4 tables:
+- `documents` — filename, type, status, raw_text
+- `document_analyses` — merged analysis results (fields, summary, urgency, detected_type, confidence, language, analyzer_outputs JSONB, and more)
+- `audit_events` — uploaded, analyzed, ocr_required, approved
+- `prompt_runs` — every LLM call with prompt name/version, model, input hash, raw output, parsed output, status
 
 ---
 
@@ -209,8 +245,8 @@ infra/             Docker Compose (Postgres 16)
 # One command — installs missing tools, starts postgres, runs migrations
 ./setup.sh
 
-# Optional: seed the 5 demo invoices
-./setup.sh --seed
+# Seed the 7-doc demo set (5 invoices + 1 contract + 1 accountant email)
+cd apps/api && uv run python scripts/seed_demo.py
 ```
 
 Then in two terminals:
@@ -230,15 +266,15 @@ Open `http://localhost:5173`.
 ## Roadmap
 
 ### Slice 4 — Classifier · Summary · PDF · Evaluation harness
-*Not yet started*
+**Complete — 2026-05-05**
 
-- Document classifier: reads any uploaded document and assigns a type automatically (no more dropdown selection required)
-- Summary prompt: generates a short human-readable summary for every document type
-- Contract review prompt: extracts parties, payment terms, penalties, renewal clauses, risk flags
-- PDF parsing: `pdfplumber` for text-PDFs (no OCR yet)
-- Evaluation harness: automated test suite that runs the prompt battery against known documents and checks extraction accuracy
-
-After Slice 4: upload a PDF invoice, get type + summary + extracted fields automatically.
+- Document classifier: assigned type, confidence, language, and named entities for all document types
+- Summary prompt: short summary and urgency for all document types
+- Contract review: payment terms, penalties, termination, risk flags, human-review questions
+- PDF parsing: `pdfplumber` for text-PDFs (image-only PDFs flagged as `not_supported_yet`)
+- Evaluation harness: 4 fixtures × applicable analyzers, 9/10 pass, 1 known gap tracked
+- Frontend: urgency badge, classifier disagreement badge, collapsible contract terms panel
+- Seed: 7-doc demo set
 
 ---
 
@@ -248,7 +284,7 @@ After Slice 4: upload a PDF invoice, get type + summary + extracted fields autom
 - `pgvector` embeddings for all uploaded documents
 - Ask My Company becomes real: questions answered from the actual document corpus
 - Draft Reply becomes real: AI drafts based on document context
-- OCR for scanned documents (not born-digital)
+- OCR for scanned documents (image-only PDFs that fail today)
 - The product is fully functional as an end-to-end private AI operations workspace
 
 After Slice 5: the MVP is complete. A real Romanian SME could run a pilot.
@@ -266,7 +302,8 @@ These are deliberate exclusions, not missing features:
 - No multi-tenant permissions or user accounts
 - No mobile app
 - No fine-tuning or custom model training
-- No legal or accounting advice — the AI flags things for human review, it does not give professional opinions
+- No legal or accounting advice — the AI flags clauses for human review, it does not give professional opinions
+- No OCR (image-only PDFs) — planned for Slice 5
 
 ---
 
@@ -281,7 +318,13 @@ Every AI prompt used by the system is versioned. The first line of every prompt 
 The runner parses this line and logs the name and version in `prompt_runs`. If a prompt is changed, the version is bumped and the change is recorded. This makes it possible to trace exactly which version of a prompt produced any given extraction.
 
 Current prompts:
-- `invoice_extractor v1` — extracts invoice fields from Romanian supplier invoices
+
+| Prompt | Applies to | What it produces |
+|---|---|---|
+| `invoice_extractor v1` | `supplier_invoice` | supplier name, CUI, amounts, dates, line items, missing fields |
+| `classifier v1` | all types | document_type, confidence, language, detected entities |
+| `summarizer v1` | all types | short_summary, urgency, key_points, deadlines, amounts, obligations |
+| `contract_reviewer v1` | `contract` | payment terms, penalties, termination, risk flags, human-review questions |
 
 ---
 
@@ -299,13 +342,50 @@ apps/web/src/routes/            ← frontend pages
   app/inbox/                    ← live AI inbox
   app/ask/                      ← Ask My Company (mock)
 
+apps/web/src/lib/
+  api/client.ts                 ← API client + TypeScript types
+  components/ClassifierBadge.svelte    ← classifier disagreement badge
+  components/ContractTermsPanel.svelte ← collapsible contract terms
+
 apps/api/app/
-  analyzers/                    ← Analyzer protocol + registry + InvoiceExtractor
-  prompts/                      ← prompt template files (versioned)
-  services/llm.py               ← LLM adapter (only place that calls the provider)
-  services/analysis.py          ← pipeline: dispatch → run → merge → persist
-  api/documents.py              ← REST endpoints
+  analyzers/                    ← Analyzer protocol + registry
+    base.py                     ← AnalyzerResult + Analyzer Protocol
+    registry.py                 ← ANALYZERS list + analyzers_for()
+    classifier.py               ← DocumentClassifier
+    summarizer.py               ← DocumentSummarizer
+    invoice_extractor.py        ← InvoiceExtractor
+    contract_reviewer.py        ← ContractReviewer
+    merge.py                    ← merge_into_analysis() (isinstance dispatch)
+  prompts/                      ← versioned prompt template files (.txt)
+  schemas/                      ← Pydantic output models
+    extraction.py               ← InvoiceExtraction
+    classification.py           ← Classification
+    summary.py                  ← Summary
+    contract.py                 ← ContractReview
+    documents.py                ← API response schemas
+  services/
+    llm.py                      ← LLM adapter (only place that calls the provider)
+    analysis.py                 ← pipeline: dispatch → run → merge → persist
+    prompts.py                  ← load_prompt() + substitute()
+    parsing.py                  ← parse_pdf() via pdfplumber
+  api/documents.py              ← REST endpoints (text or PDF upload)
+  evals/                        ← eval harness
+    fixtures.py                 ← 4 test fixtures with expected outputs
+    scoring.py                  ← EvalScore model (score 0-10, errors, hallucinations)
+    runner.py                   ← evaluate() + run_all()
+    run.py                      ← CLI entry point
   db/models.py                  ← 4 database models
+
+apps/api/alembic/versions/      ← database migrations
+  0001_initial_schema.py
+  0002_slice4_analysis_columns.py   ← 5 new columns (detected_type, confidence, language, urgency, analyzer_outputs)
+
+apps/api/scripts/
+  seed_demo.py                  ← seeds 7-doc demo set (replaces seed_invoices.py)
+
+apps/api/tests/
+  fixtures/sample_invoice.pdf   ← text-PDF fixture for PDF parsing tests
+  evals/results/                ← eval run results (local-only, gitignored)
 
 codocz/                         ← internal product definition docs (Phase 0)
   romanian_sme_ai_companion_blueprint.md
