@@ -100,15 +100,18 @@ $(. /etc/os-release && echo "$VERSION_CODENAME") stable" \
     docker-ce docker-ce-cli containerd.io \
     docker-buildx-plugin docker-compose-plugin
 
-  # Allow running docker without sudo
-  if ! groups "$USER" | grep -q docker; then
-    warn "Adding $USER to the docker group (takes effect in new shells)"
-    sudo usermod -aG docker "$USER"
-    # Run the rest of the script via sg to pick up the new group now
-    exec sg docker -c "bash $0 $*"
-  fi
-
   ok "Docker installed: $(docker --version)"
+fi
+
+# Ensure current user can talk to the Docker socket without sudo
+if ! docker info &>/dev/null 2>&1; then
+  if ! groups "$USER" | grep -q docker; then
+    warn "Adding $USER to the docker group"
+    sudo usermod -aG docker "$USER"
+  fi
+  # Re-exec entire script under sg so the new group takes effect immediately
+  warn "Re-launching script with docker group active (sg docker)..."
+  exec sg docker -c "bash \"$0\" $*"
 fi
 
 # Verify docker compose (v2 plugin)
