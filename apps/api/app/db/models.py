@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import String, Text, ForeignKey, DateTime, func
+from sqlalchemy import String, Float, Text, ForeignKey, DateTime, func
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base
@@ -43,6 +43,11 @@ class DocumentAnalysis(Base):
     risk_flags: Mapped[list | None] = mapped_column(JSONB, nullable=True)
     summary: Mapped[str | None] = mapped_column(Text, nullable=True)
     suggested_action: Mapped[str | None] = mapped_column(Text, nullable=True)
+    detected_type: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
+    language: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    urgency: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    analyzer_outputs: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     document: Mapped["Document"] = relationship("Document", back_populates="analysis")
