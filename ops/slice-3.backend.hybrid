@@ -359,6 +359,110 @@ topology  defined → in-progress → shipped
 - VITE_API_BASE_URL: one .env.example per app (apps/web + apps/api + infra)
 - docker not available on build machine: migrations + seed deferred to user setup
 - 5 supplier invoices seeded (not 4 as initially planned — 5th was added in slice-2)
+
+DEFECT (2026-05-05 verification by coordinator)
+- All 5 seeded invoices have document.status="done" but analyzer FAILED for each
+- Root cause: InvoiceExtraction Pydantic schema declares numeric fields as `str` only,
+  LLM returns JSON numbers. 8 validation errors per doc.
+- Secondary: status set to "done" regardless of analyzer outcome.
+- Hotfix scoped below in §Hotfix.
+```
+
+---
+
+## Hotfix · slice-3.1 (live verification revealed schema/LLM mismatch)
+
+```
+finding     analyzer pattern works · framework is sound
+            but every invoice fails Pydantic validation:
+              numeric fields declared `str`, LLM returns int/float
+            secondary: document.status doesn't reflect analyzer outcome
+
+scope IN    schema coercers + prompt nudge + status propagation + reseed + verify
+
+scope OUT   prompt version bump  (this is a non-breaking refinement of v1 contract)
+            new analyzers · new endpoints · UI changes · feature work
+```
+
+### Hotfix builder prompt
+
+Copy into a fresh Sonnet session at the repo root:
+
+```text
+Read CLAUDE.md and ops/slice-3.backend.hybrid §Hotfix.
+
+You are the builder for the slice-3 hotfix. Coordinator (opus) verified the live pipeline; all 5 invoices failed extraction due to a schema/LLM contract mismatch caught by the analyzer framework but not yet handled.
+
+Root cause:
+- apps/api/app/schemas/extraction.py declares total_amount, vat_amount, and line_items inner numeric fields as `str | None`. LLM returns these as JSON numbers (3046.4, 12, 185). Pydantic raises 8 validation errors per document.
+
+Secondary bug:
+- apps/api/app/services/analysis.py sets Document.status = "done" even when the analyzer fails. Status should reflect actual analyzer outcome.
+
+Tasks (commit at each numbered checkpoint):
+
+1. SCHEMA COERCERS.
+   In apps/api/app/schemas/extraction.py:
+   - Keep numeric field types as `str | None` (UI expects strings).
+   - Add a Pydantic field_validator with mode="before" that coerces incoming int/float to str:
+       monetary fields (total_amount, vat_amount, line_items[].unit_price, line_items[].amount)
+         → format as "{value:.2f}"
+       integer fields (line_items[].quantity)
+         → str(int(value))
+   - If the value is None or already a str, pass through.
+   - Use a single shared validator helper if cleaner.
+   Commit: "slice-3-hotfix(schema): coerce numeric fields to strings before validation"
+
+2. PROMPT NUDGE.
+   In apps/api/app/prompts/invoice_extractor_v1.txt:
+   - Add to the rules section a brief line: "Return amounts as decimal strings (e.g., \"3046.40\"); return quantities as integer strings (e.g., \"12\"); use null for missing values."
+   - Do NOT bump the version. This is a non-breaking refinement of v1; coercers in step 1 already handle either format. (If you strongly disagree, bump to v1.1 and update the inline `# prompt:` line; record why in patchlog.)
+   Commit: "slice-3-hotfix(prompt): clarify number formatting in invoice_extractor v1"
+
+3. STATUS PROPAGATION.
+   In apps/api/app/services/analysis.py (run_analysis or equivalent):
+   - After running all applicable analyzers for a document:
+       if at least one analyzer succeeded   → Document.status = "done"
+       if every analyzer failed              → Document.status = "failed"
+       if no analyzers applied               → Document.status = "not_supported"
+   - Also update GET /api/documents list response to expose status accurately.
+   Commit: "slice-3-hotfix(api): document.status reflects analyzer outcome"
+
+4. WIPE + RESEED.
+   - Wipe doc-related tables. Pick whichever is least friction:
+       a) docker compose exec postgres psql -U <user> -d <db> -c "TRUNCATE documents, document_analyses, audit_events, prompt_runs CASCADE;"
+       b) cd apps/api && uv run alembic downgrade base && uv run alembic upgrade head
+   - Re-run: uv run python scripts/seed_invoices.py
+   - All 5 should land with status="done" and populated analysis.
+
+5. VERIFY (the slice-3 acceptance lines that were red).
+   - curl http://localhost:8000/api/documents | jq '.[] | {filename, status}'
+       all 5 should be "done"
+   - curl http://localhost:8000/api/documents/<lumina_id> | jq .analysis
+       expected fields:
+         supplier_name = "Lumina Design SRL"
+         supplier_cui  = "RO00000001"
+         invoice_number= "LD 0041"  (or close)
+         invoice_date  = "28.04.2026"
+         due_date      = "12.05.2026"
+         total_amount  = "3046.40"
+         currency      = "RON"
+         missing_fields includes the PO reference (or equivalent)
+   - prompt_runs: SELECT prompt_name, prompt_version, status FROM prompt_runs;
+       5 rows, all status="success"
+   - Open http://localhost:5173/app/inbox in browser → 5 Live cards with extracted fields visible.
+
+6. SHIP.
+   - Append ONE PATCHLOG line to ops/slice-3.backend.hybrid (hotfix verified · model used · timing).
+   - Append ONE PATCHLOG line to ops/project.state.hybrid; update §Now (current → slice-4) only after all 5 verify clean.
+   - Final commit: "slice-3-hotfix: live extraction verified · 5/5 invoices · slice-3 truly stable"
+
+Hard rules (unchanged from slice-3):
+- never call provider SDK outside app/services/llm.py
+- inline prompt version line on every runtime prompt
+- no Send button anywhere · ever
+
+If verification step 5 shows ANY hallucinated value (e.g., a CUI or amount not in the source text), STOP and report. Do not proceed to ship until extraction is clean.
 ```
 
 ---
@@ -382,4 +486,18 @@ topology  defined → in-progress → shipped
                                blocker: docker not installed on build machine — migrations + seed
                                deferred to user; code is correct, run: docker compose up -d postgres &&
                                alembic upgrade head && uv run python scripts/seed_invoices.py
+2026-05-05  user                         ran setup + seed · all 5 docs visible in API · status=done
+2026-05-05  coordinator(opus)            live verification: ALL 5 extractions FAILED · root cause:
+                                         InvoiceExtraction schema declares numerics as `str` but LLM
+                                         returns numbers · 8 validation errors per doc · analyzer
+                                         framework correctly recorded analysis_failed audit events ·
+                                         secondary: status="done" set regardless of outcome · slice-3
+                                         structurally complete but AI moment unrealized · §Hotfix
+                                         section added with builder prompt
+2026-05-05  builder(claude-sonnet-4-6)  hotfix verified · schema coercers (int/float→str, monetary→"{:.2f}") ·
+                                         prompt nudge (return amounts as strings) · status propagation
+                                         (done/failed/not_supported) · 5/5 invoices status=done ·
+                                         Lumina: supplier=Lumina Design SRL · cui=RO00000001 ·
+                                         invoice=LD 0041 · total=3046.40 RON · no hallucinated values ·
+                                         provider: openai-compat → Mistral
 ```
