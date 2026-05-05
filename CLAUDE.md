@@ -38,15 +38,15 @@ Guiding principle: **AI prepares. Humans approve.**
 - `ops/rules.constraints.hybrid` — durable rules (tone, data, language, stack, palette, prompt hygiene, MVP exclusions). Anchored. Do not violate.
 - `ops/slice-N.<name>.hybrid` — one per build slice. Scope · acceptance · builder prompt · state · patchlog.
 
-Reference docs (L1 narrative, written in Phase 0):
-- `romanian_sme_ai_companion_blueprint.md` — vision, modules, MVP scope. Start here for product context.
-- `romanian_sme_ai_companion_project_control_pack.md` — One-Page Brief, MVP boundary, synthetic demo company "Atelier Nova SRL", Prompt Registry (§23.5), AI Evaluation Checklist, Pilot Discovery Script, Architecture Decision Log.
-- `romanian_sme_ai_companion_technical_stack_decision_pack.md` — stack choices, monorepo layout, data model, processing pipeline. (Frontend = SvelteKit; Vue option preserved as historical context only.)
-- `romanian_sme_ai_companion_prompt_pack.md` — 28 sequential prompts (strategy → runtime AI → outreach).
-- `romanian_sme_ai_companion_promotion_go_to_market_pack.md` — GTM messaging, channel plan, post bank.
-- `romanian_sme_ai_companion_diagrams.md` — Mermaid diagrams + diagram style guide.
-- `romanian_sme_ai_companion_build_recommendation.md` — sections 11–18: practical "how do I start" notes.
-- `romanian_sme_ai_companion_development_phases.md` — near-duplicate of blueprint; resync or delete rather than letting them drift.
+`codocz/` — internal dev/reference docs (L1 narrative, written in Phase 0). Kept separate from any future user-facing product documentation.
+- `codocz/romanian_sme_ai_companion_blueprint.md` — vision, modules, MVP scope. Start here for product context.
+- `codocz/romanian_sme_ai_companion_project_control_pack.md` — One-Page Brief, MVP boundary, synthetic demo company "Atelier Nova SRL", Prompt Registry (§23.5), AI Evaluation Checklist, Pilot Discovery Script, Architecture Decision Log.
+- `codocz/romanian_sme_ai_companion_technical_stack_decision_pack.md` — stack choices, monorepo layout, data model, processing pipeline. (Frontend = SvelteKit; Vue option preserved as historical context only.)
+- `codocz/romanian_sme_ai_companion_prompt_pack.md` — 28 sequential prompts (strategy → runtime AI → outreach).
+- `codocz/romanian_sme_ai_companion_promotion_go_to_market_pack.md` — GTM messaging, channel plan, post bank.
+- `codocz/romanian_sme_ai_companion_diagrams.md` — Mermaid diagrams + diagram style guide.
+- `codocz/romanian_sme_ai_companion_build_recommendation.md` — sections 11–18: practical "how do I start" notes.
+- `codocz/romanian_sme_ai_companion_development_phases.md` — near-duplicate of blueprint; resync or delete rather than letting them drift.
 - `brainstorm_unsorted/` — earlier draft blueprints. Superseded.
 
 The reference docs do not change often. The codons in `ops/` change every session. When in doubt: codons are state, narrative docs are spec.

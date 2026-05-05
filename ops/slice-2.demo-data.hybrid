@@ -3,39 +3,253 @@ id: slice-2.demo-data
 type: build-slice
 domain: bca.content + bca.frontend.phase-1
 agreement: bca.build-roadmap
-state: seed
+state: forming
 density: L2.5
 ---
 
-# Slice 2 · Complete Demo Dataset + Ask/Reply Mocks
+# Slice 2 · Complete Demo Dataset + Ask My Company + Draft Reply
 
-*Fill the 12 missing demo docs · add interactive mocks for Ask My Company and Draft Reply*
+*Fill 12 missing demo docs · add /app/ask mock · add Draft Reply panel · still no backend*
 
 ---
 
 ## Why
 
-Slice 1 ships with 4 documents. Blueprint demo dataset (project_control_pack §23.3) lists 16.
-Without the full set /app/inbox feels thin and Ask My Company has nothing to query.
-Still no backend — these are richer mocks built on bigger static JSON.
+Slice-1 ships 4 docs and shows organize+approve. The blueprint demo (control pack §23.3) calls for 16 docs and three product moments: organize, *ask*, *draft*. Without /app/ask and Draft Reply, the demo's promise ("AI prepares replies, AI answers from your docs") is not visible. This slice closes that gap with mocks — convincing enough for SME pilot conversations, no real RAG yet.
 
 ---
 
-## Scope (sketch — refine when slice-1 lands)
+## Scope
 
 ```
-content   4 more invoices · 2 more client emails · 2 supplier offers
-          1 more contract · 1 HR policy · 1 internal procedure · 1 price list
-          each doc:   synthetic content + expected extraction + expected summary
-          source filenames already enumerated in project_control_pack §23.3
+IN     12 new synthetic docs · Romanian content + extraction object per doc
+       /app/ask  Ask My Company chat mock · canned Q&A + honest "not found" fallback
+       Draft Reply panel inside doc detail · pre-canned Romanian replies for client requests
+       new data files: src/lib/data/qa.ts · src/lib/data/replies.ts
+       inbox.ts grows to 16 docs (split into per-type sections within file is fine)
+       sidebar nav updated: Inbox · Ask My Company
 
-mocks     /app/ask           Ask My Company chat · answer from static JSON · no real RAG
-          Draft Reply panel  inside doc detail · pre-canned drafts per client request
+OUT    real RAG · embeddings · vector search
+       file upload · backend · auth
+       PDF parsing · OCR
+       editing replies (Approve / Edit-locally / Discard is enough for now)
+       sending replies (no auto-send · ever)
+```
 
-acceptance  16 cards in inbox
-            8 questions from §23.3 "Example Ask My Company Questions" return non-empty answers
-            client request docs render a Romanian Draft Reply with Approve/Edit affordances
-            no broken states · still under 3-min walkthrough
+---
+
+## Acceptance
+
+```
+inbox          16 cards · all 4 types (invoice · contract · client request · supplier offer · accountant · HR · procedure · price list)
+               filter by type works · urgency sort works
+ask            8 §23.3 example questions return canned answers citing source filenames
+               unknown question → "Information not found in your documents" + suggestion to upload more
+draft          3 client_request docs render Draft Reply panel with Romanian draft
+               Approve marks draft as approved (state visible) · audit event logged
+               no Send button visible anywhere
+walkthrough    still under 3 min for stranger first-pass
+               product promise visible: organize · ask · draft · approve
+```
+
+---
+
+## Constraints inherited
+
+See `ops/rules.constraints.hybrid` (anchored). Key reminders:
+- All content synthetic · Atelier Nova SRL only · synthetic CUI/IBAN/personnel
+- Romanian for documents, English for UI
+- No Send button anywhere · ever
+- Visual palette unchanged from slice-1
+
+---
+
+## Content specs · 12 missing documents
+
+Builder generates Romanian text following the style of the 4 existing §23.3 docs (same voice, same level of detail). Each doc must include at least one missing field, risk flag, or unresolved item — the AI is meant to surface these.
+
+```
+SUPPLIER INVOICES (4)
+
+invoice_mobila_artisan_2026_0187.pdf
+  supplier   Mobila Artisan SRL · CUI RO00000003 · IBAN RO00BANK0000000000000003
+  items      custom shelving · 4 modules @ 720 RON/buc + montaj 280 RON
+  total      ~3140 RON · TVA included
+  due        21.05.2026
+  twist      delivery confirmed verbally but no signed acceptance protocol attached
+  urgency    Medium
+
+invoice_printstudio_2026_0098.pdf
+  supplier   PrintStudio Media SRL · CUI RO00000004
+  items      promotional materials (catalogs, business cards) · ~850 RON total
+  due        already paid 02.05.2026 (per accountant email this needs payment confirmation forwarding)
+  twist      payment was made but proof not yet sent to accountant
+  urgency    Medium
+
+invoice_curier_rapid_2026_1142.pdf
+  supplier   Curier Rapid Express SRL · CUI RO00000005
+  items      delivery services aprilie 2026 · ~440 RON
+  due        15.05.2026
+  twist      one delivery (poz 3) is disputed — recipient claims package was incomplete
+  urgency    Low
+
+invoice_softcloud_2026_0520.pdf
+  supplier   SoftCloud Solutions SRL · CUI RO00000006
+  items      monthly subscription · cloud hosting + backup · 220 RON/lună
+  due        18.05.2026
+  twist      the accountant flagged this — no record of who approved the subscription
+             (links back to email_accountant_missing_docs_april.txt point #4)
+  urgency    High
+
+CLIENT EMAILS (2)
+
+email_client_showroom_pitesti.txt
+  sender     existing client tied to contract_client_showroom_renovation
+  topic      asks for status update on renovation phase 1 milestones
+  twist      mentions a date that does not match the contract's milestone schedule
+  urgency    Medium
+
+email_client_intarziere_livrare.txt
+  sender     a different client
+  topic      complaint about a 5-day delay on a custom delivery
+  twist      polite but firm · asks for compensation or partial discount
+  urgency    High
+
+SUPPLIER OFFERS (2)
+
+offer_lumina_led_panels.txt
+  from       Lumina Design SRL (existing supplier)
+  proposes   new generation LED panels at a 12% discount if order placed before 31.05.2026
+  twist      discount is contingent on minimum 30-unit order
+  urgency    Low
+
+offer_mobila_custom_shelves.txt
+  from       Mobila Artisan SRL (existing supplier)
+  proposes   custom shelving for a hypothetical second showroom · sample pricing
+  twist      includes lead time of 6 weeks · doesn't match Atelier Nova's typical project timing
+  urgency    Low
+
+CONTRACT (1)
+
+contract_client_showroom_renovation.txt
+  parties    Atelier Nova SRL · client (synthetic SRL name)
+  scope      complete renovation of a 220 sqm showroom in Pitești · 3 milestone phases
+  payment    40% advance · 40% mid-project · 20% on acceptance
+  duration   start 15.04.2026 · end target 30.06.2026
+  penalties  0.1% per day for delays past 30.06.2026
+  twist      penalty clause is stricter than the supplier-side Lumina contract — flag this for review
+  urgency    Medium
+
+INTERNAL (3)
+
+policy_hr_remote_work.txt
+  scope      remote work policy · who is eligible · approval process · required tools
+  notes      mentions a 2-day-per-week max · no public version yet
+  urgency    Low
+
+procedure_client_project_intake.txt
+  scope      step-by-step procedure for taking on a new client project
+  steps      consultation → site visit → offer → contract → kickoff
+  twist      step 4 references a "standard contract template" that does not yet exist as a document
+  urgency    Low
+
+price_list_services_2026.txt
+  scope      service price list 2026 · consultation · design · project management · custom items
+  notes      includes a footnote that prices are subject to revision after Q2 2026
+  urgency    Low
+```
+
+For each doc, builder produces:
+- `rawContent` (Romanian, plausible business prose)
+- `summary` (English, 1-2 sentences, mentions the twist/missing item)
+- `suggestedAction` (English, practical next step)
+- `fields[]`, `missingFields[]`, `riskFlags[]` per the `InboxDoc` shape from slice-1
+- `audit[]` with at least one initial AI-analyzed event
+
+---
+
+## Mock RAG strategy (resolved)
+
+```
+canned Q&A      8 questions from project_control_pack §23.3 "Example Ask My Company Questions"
+                each → fixed answer text + cited source filenames from the 16-doc set
+                question 5 ("Draft a reply to the apartment client") → answer routes user to /app/inbox
+                with the apartament card and explains the Draft Reply panel exists there
+
+fallback        any question not matched by exact-or-close keyword set:
+                "Information not found in your documents."
+                + small hint listing the 8 example questions
+
+honest mode     no fake confidence · no fabricated sources · "not found" is a feature not a bug
+                this is the same shape the real RAG will use in slice-3
+```
+
+---
+
+## Draft Reply strategy (resolved)
+
+```
+who           only docs with type === 'Client Request'  (3 total: existing apartament + 2 new)
+where         new collapsible panel inside the existing /app/inbox doc detail view
+content       pre-canned Romanian draft per client doc · written by builder
+states        Suggested → Approved (button click) → audit event logged
+no Send       no Send button visible · only Approve / Edit-locally / Discard
+              Edit-locally lets user modify text in-page · changes do not persist (no backend)
+              Discard removes the draft · audit event logged
+```
+
+---
+
+## Builder prompt
+
+Copy this into a fresh IDE session (Sonnet) at `/home/innerpixel/dev/sme-companion`:
+
+```text
+Read CLAUDE.md, ops/project.state.hybrid, ops/rules.constraints.hybrid, and ops/slice-2.demo-data.hybrid.
+
+You are the builder for slice-2. Coordinator (opus) has defined scope and resolved the open edges; you execute.
+
+Reference docs are in codocz/ (e.g., codocz/romanian_sme_ai_companion_project_control_pack.md §23.3).
+
+Tasks (commit in checkpoints — 1 commit after each major task):
+
+1. Author the 12 missing demo documents per slice-2 §Content specs. For each:
+   - Generate plausible Romanian rawContent following the voice/length of the 4 existing §23.3 docs.
+   - Build the InboxDoc object (shape from src/lib/data/inbox.ts) with English summary/action and Romanian rawContent.
+   - Ensure the "twist" from the spec surfaces in missingFields or riskFlags or summary.
+   - Append all 12 to INBOX_DOCS in src/lib/data/inbox.ts. You may group them with comment headers by type (// === Supplier Invoices === etc).
+   Commit: "slice-2(content): 12 synthetic demo documents complete"
+
+2. Build src/lib/data/qa.ts with canned Q&A pairs per slice-2 §Mock RAG strategy. Export a typed QA_PAIRS array and a matchQuestion(input: string): QAResult function (returns matched answer + cited filenames, or null for fallback).
+   Commit: "slice-2(qa): canned Ask My Company question/answer pairs"
+
+3. Build /app/ask route — chat-style UI. Static layout: input box at bottom, message list above. On submit: matchQuestion → render answer with cited source pills (clickable to /app/inbox?focus=<id>) OR render fallback "Information not found" + hint. No streaming animation needed.
+   Update /app/+layout.svelte sidebar: add "Ask My Company" entry between Inbox and any future entries.
+   Commit: "slice-2(ask): /app/ask Ask My Company mock with canned answers"
+
+4. Build src/lib/data/replies.ts with pre-canned Romanian Draft Reply content for the 3 client_request docs. Type: { docId: string; subject: string; body: string }[].
+
+5. Add Draft Reply panel to /app/inbox doc detail view (collapsible, only renders when type === 'Client Request'). Show subject + body in Romanian, three actions: Approve · Edit-locally · Discard. Approve sets a reactive approval state and appends an audit event. Edit-locally swaps to a textarea (changes don't persist). Discard hides the panel and logs an audit event. No Send button anywhere — verify before commit.
+   Commit: "slice-2(reply): Draft Reply panel for client requests"
+
+6. Verify acceptance criteria from slice-2 §Acceptance manually. Note any deviations.
+
+7. When done:
+   - npm run check → must pass clean (or document the noise)
+   - npm run build → must succeed
+   - append ONE PATCHLOG line to ops/slice-2.demo-data.hybrid (timestamp · model · summary)
+   - update STATE in slice-2 frontmatter from "forming" to "stable"
+   - append ONE PATCHLOG line to ops/project.state.hybrid; update §Now (current → slice-3.backend) and §Slices (slice-2 → stable)
+   - final commit: "slice-2: codon shipped · state→stable"
+
+Constraints (anchored — do not violate):
+- All content synthetic. Synthetic CUI/IBAN/names matching existing pattern (RO0000000N).
+- Romanian for document rawContent, English for summary/action/UI.
+- No Send button. Anywhere. Ever.
+- Visual palette unchanged.
+- Tone calm, no hype. Reference: codocz/romanian_sme_ai_companion_promotion_go_to_market_pack.md §4-§5.
+
+Confirm the plan in 3 lines, then start with task 1. Stop and report back if scope drifts or you hit a blocker — append to slice-2 OPEN EDGES, commit what you have.
 ```
 
 ---
@@ -43,20 +257,19 @@ acceptance  16 cards in inbox
 ## State
 
 ```
-state     seed
-gravity   MEDIUM (unblocks pilot demos)
-topology  now: planned → next: refine after slice-1 ships → destination: shipped
+state     forming
+gravity   HIGH (without this, demo is missing two of three product moments)
+topology  defined → in-progress → shipped
 ```
 
 ---
 
-## Open edges
+## Open edges (remaining)
 
 ```
-- mock RAG strategy: keyword match · canned answers per question · fuzzy match library?
-- if Ask My Company answers are pre-canned, are they fragile under unexpected questions?
-- supplier offer realism — we don't have real Romanian supplier offer formats to mimic
-- where the 12 documents live: content/synthetic/*.md or one big JSON?
+- whether Edit-locally needs a "save to URL" trick for share-during-demo  defer · not needed for slice-2
+- inbox grows to ~800 lines  acceptable for slice-2 · refactor to per-doc files in slice-3 if it hurts
+- "Information not found" hint text  builder can author · keep under 80 chars
 ```
 
 ---
@@ -65,4 +278,5 @@ topology  now: planned → next: refine after slice-1 ships → destination: shi
 
 ```
 2026-05-05  coordinator(opus)  seeded · refine after slice-1 ships
+2026-05-05  coordinator(opus)  refined: scope sharpened · 12 doc content specs written · RAG + Draft Reply strategies resolved · builder prompt embedded · state seed→forming
 ```
