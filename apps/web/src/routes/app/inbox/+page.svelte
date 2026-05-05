@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { api, type ApiDocumentDetail, type ApiDocumentItem } from '$lib/api/client.js';
+	import ClassifierBadge from '$lib/components/ClassifierBadge.svelte';
+	import ContractTermsPanel from '$lib/components/ContractTermsPanel.svelte';
 
 	// ── State ────────────────────────────────────────────────────────────────
 
@@ -53,6 +55,13 @@
 
 	function eventLabel(event_type: string) {
 		return event_type.replace(/_/g, ' ').replace(/:/g, ' · ');
+	}
+
+	function urgencyColor(urgency: string | null | undefined) {
+		if (urgency === 'high') return 'var(--color-urgency-high)';
+		if (urgency === 'medium') return 'var(--color-urgency-medium)';
+		if (urgency === 'low') return 'var(--color-urgency-low)';
+		return 'var(--color-text-muted)';
 	}
 
 	interface ExtractedField {
@@ -262,8 +271,8 @@
 					<div style="font-size: 12px; color: var(--color-stroke-light); margin-bottom: 4px; font-family: monospace; word-break: break-all; line-height: 1.3;">
 						{doc.filename}
 					</div>
-					<div style="font-size: 12px; color: {statusColor(doc.status)};">
-						{doc.status}
+					<div style="display: flex; gap: 8px; align-items: center;">
+						<span style="font-size: 12px; color: {statusColor(doc.status)};">{doc.status}</span>
 					</div>
 				</button>
 			{/each}
@@ -297,6 +306,18 @@
 				<span style="font-size: 12px; color: {statusColor(selected.status)}; background: var(--color-main); padding: 3px 10px; border-radius: 3px; border: 1px solid var(--color-stroke);">
 					{selected.status}
 				</span>
+				{#if selected.analysis?.urgency && selected.analysis.urgency !== 'unknown'}
+					<span style="font-size: 11px; color: {urgencyColor(selected.analysis.urgency)}; background: var(--color-data); border: 1px solid var(--color-stroke); padding: 2px 8px; border-radius: 3px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">
+						{selected.analysis.urgency}
+					</span>
+				{/if}
+				{#if selected.analysis}
+					<ClassifierBadge
+						detectedType={selected.analysis.detected_type}
+						docType={selected.type}
+						confidence={selected.analysis.confidence}
+					/>
+				{/if}
 			</div>
 			<div style="font-family: monospace; font-size: 13px; color: var(--color-stroke-light); margin-bottom: 4px;">
 				{selected.filename}
@@ -374,6 +395,13 @@
 					</div>
 				{/if}
 			</div>
+			<!-- Contract Terms Panel -->
+			{#if selected.analysis}
+				<ContractTermsPanel
+					docType={selected.type}
+					analyzerOutputs={selected.analysis.analyzer_outputs}
+				/>
+			{/if}
 		{:else if selected.status === 'done'}
 			<section style="background: var(--color-main); border: 1px solid var(--color-stroke); border-radius: 8px; padding: 18px 20px; margin-bottom: 16px;">
 				<p style="font-size: 14px; color: var(--color-text-muted); margin: 0;">

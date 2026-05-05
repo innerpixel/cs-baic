@@ -27,6 +27,11 @@ export interface ApiAnalysis {
 	risk_flags: string[] | null;
 	summary: string | null;
 	suggested_action: string | null;
+	detected_type: string | null;
+	confidence: number | null;
+	language: string | null;
+	urgency: string | null;
+	analyzer_outputs: Record<string, unknown> | null;
 	created_at: string;
 }
 
