@@ -144,7 +144,7 @@ Oricare parte poate denunța contractul cu notificare scrisă transmisă cu 30 d
         "expected": {
             "contract_reviewer": {
                 "payment_terms_contains": ["14"],
-                "penalties_contains": ["0,05", "0.05", "10"],
+                "penalties_contains": ["0.05", "10"],
                 "termination_terms_nonempty": True,
                 "risk_flags_nonempty": True,
             },
