@@ -14,6 +14,9 @@ class Settings(BaseSettings):
     llm_api_key: str = ""
     llm_model: str = "mistral-small-latest"
 
+    embedding_model: str = "mistral-embed"
+    embedding_dimensions: int = 1024
+
     @property
     def database_url(self) -> str:
         return (

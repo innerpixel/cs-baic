@@ -1,9 +1,11 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import String, Float, Text, ForeignKey, DateTime, func
+from sqlalchemy import Integer, String, Float, Text, ForeignKey, DateTime, func
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from pgvector.sqlalchemy import Vector
 from app.db.base import Base
+from app.core.config import settings
 
 
 class Document(Base):
@@ -26,6 +28,7 @@ class Document(Base):
         "AuditEvent", back_populates="document", order_by="AuditEvent.created_at"
     )
     prompt_runs: Mapped[list["PromptRun"]] = relationship("PromptRun", back_populates="document")
+    chunks: Mapped[list["DocumentChunk"]] = relationship("DocumentChunk", back_populates="document")
 
 
 class DocumentAnalysis(Base):
@@ -87,3 +90,19 @@ class PromptRun(Base):
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     document: Mapped["Document | None"] = relationship("Document", back_populates="prompt_runs")
+
+
+class DocumentChunk(Base):
+    __tablename__ = "document_chunks"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    document_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("documents.id", ondelete="CASCADE"), nullable=False
+    )
+    chunk_index: Mapped[int] = mapped_column(Integer, nullable=False)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    embedding: Mapped[list | None] = mapped_column(Vector(settings.embedding_dimensions), nullable=True)
+    metadata_: Mapped[dict | None] = mapped_column("metadata", JSONB, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    document: Mapped["Document"] = relationship("Document", back_populates="chunks")

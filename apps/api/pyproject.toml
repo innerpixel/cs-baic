@@ -14,6 +14,7 @@ dependencies = [
     "openai>=1.56.0",
     "psycopg2-binary>=2.9.10",
     "pdfplumber>=0.11.0",
+    "pgvector>=0.4.2",
 ]
 
 [build-system]
