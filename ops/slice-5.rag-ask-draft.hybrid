@@ -1,0 +1,436 @@
+---
+id: slice-5.rag-ask-draft
+type: build-slice
+domain: bca.ai + bca.backend + bca.frontend
+agreement: bca.build-roadmap
+state: stable*
+density: L2.5
+---
+
+# Slice 5 · Live RAG · Ask My Company · Draft Reply · Pipeline Hardening
+
+*pgvector + paragraph chunking + grounded answers · drafts replace canned strings · BackgroundTask safety net · OCR deferred*
+
+---
+
+## Why
+
+Slice-2 made three product promises in mocked form: organize, ask, draft. Slice-3 made invoice organize REAL. Slice-4 made classify+summarize+review REAL on docs of every type. Slice-5 is when *ask* and *draft* stop being mocks. After this, the entire demo is grounded in actual AI working over the customer's actual documents — no canned strings hiding behind any UI surface.
+
+Two new product moments land:
+- A user types "Which invoices are due this week?" and gets a real answer citing real source filenames from their own corpus.
+- A client request email gets a Romanian draft reply written by the LLM using the company's docs as context (not a canned string from `replies.ts`).
+
+One quiet architectural move lands too: pipeline hardening. Slice-4's `_dedup_list set()→list` bug stayed silent because the BackgroundTask wrapper had no top-level exception handler — contracts sat at status="queued" forever. We add the safety net before any new code goes through the pipeline.
+
+OCR is *deferred until pilot demand*. Image-only PDFs continue to flag `ocr_required` cleanly; we wait for a real user to ask before building the OCR layer.
+
+---
+
+## Scope
+
+```
+IN     pipeline hardening      app/services/analysis.py outer try/except around the BackgroundTask body
+                                on unexpected exception: append AuditEvent("pipeline_failed:<step>",
+                                {error, traceback_summary}) · set Document.status="failed"
+                                no silent crashes · no docs stuck at status="queued"
+
+       pgvector enabled        infra/docker-compose.yml: postgres image with pgvector preinstalled
+                                (e.g., pgvector/pgvector:pg16) · alembic upgrade enables extension
+                                schema: document_chunks(id, document_id FK, chunk_index, content TEXT,
+                                                        embedding VECTOR(N), metadata JSONB, created_at)
+                                ivfflat or hnsw index on embedding column
+
+       chunking + embedding    app/services/chunking.py · paragraph chunker (split on blank-line)
+                                                       · soft min/max chunk length · falls back to
+                                                       sentence chunking if a single paragraph is too long
+                                app/services/embeddings.py · OpenAI-compat client (env: EMBEDDING_MODEL)
+                                                            · embed(text) and embed_batch([text])
+                                                            · stays inside the provider adapter pattern
+
+       new analyzer            DocumentIndexer · applies_to=ALL · runs LAST in registry order
+                                chunks(rawText) → embed_batch → upsert into document_chunks
+                                idempotent: deletes existing chunks for the doc before inserting fresh ones
+
+       Ask My Company live     POST /api/ask {query: str} → AskAnswer (synchronous)
+                                pipeline: embed query → pgvector cosine top-K=5 → build prompt with
+                                          retrieved chunks (cite source filename per chunk) → LLM call →
+                                          parse AskAnswer schema → save PromptRun (document_id null) → return
+                                prompt: ask_company v1 · template from codocz §19.19 (literal preserve)
+                                schema: AskAnswer (answer, source_documents, confidence, missing_information,
+                                                   recommended_next_action, requires_human_review)
+                                /app/ask: replace static qa.ts with real API call · loading state · source pills
+
+       Draft Reply live        DraftReplyGenerator analyzer · applies_to={"client_request"}
+                                runs in normal analyzer pipeline after upload
+                                may retrieve top-3 chunks from the user's other docs as company context
+                                prompt: email_reply_draft v1 · template from codocz §19.18
+                                schema: DraftReply (detected_language, reply_subject, reply_body,
+                                                    assumptions, missing_information, human_review_required,
+                                                    recommended_next_action)
+                                /app/inbox client_request detail: replace replies.ts canned reply with
+                                                                    analyzer_outputs.draft_reply_generator content
+                                Approve/Edit-locally/Discard UX unchanged from slice-2 (no Send button · ever)
+
+       eval extension          tests/evals/fixtures/ask_questions.py · 5 fixtures from codocz §23.3
+                                  example questions list · each carries: query · expected source filenames
+                                  (set) · expected keywords in answer · "no relevant docs" cases for the
+                                  fallback path
+                                tests/evals/fixtures/draft_reply.py · 1 fixture (apartament email) ·
+                                  expected: detected_language=ro · reply_body asks for floor plan / budget /
+                                  start date · no commitments invented
+                                runner extended to score Ask outputs (source-citation correctness · keyword
+                                presence) and DraftReply outputs (assumption containment · human_review=true)
+
+       seed extension          seed_demo.py adds: email_client_apartament_bucuresti  (so Draft Reply has a
+                                                  client_request to chew on)
+                                7-doc baseline → 8 docs · the additional 8 slice-2-mock docs that aren't
+                                in the seed yet stay deferred (they're available as static demo content;
+                                expand on pilot demand)
+
+       env additions           .env.example: EMBEDDING_MODEL · EMBEDDING_DIMENSIONS (defaults to provider's)
+                                pgvector index parameters tunable later
+
+       UI polish               /app/ask: input + send button + chat-style message list + source pills →
+                                          card link to /app/inbox?focus=<doc_id>
+                                /app/inbox client_request: Live badge on Draft Reply panel when
+                                                            analyzer_outputs.draft_reply_generator present
+                                                            (otherwise hide the panel rather than show canned)
+                                image-only PDF surface: clearer audit-event message in UI ·
+                                                       "PDF requires OCR — deferred until pilot demand"
+
+OUT    OCR                                       deferred · awaits pilot demand · no work this slice
+       multi-tenant / auth                       post-MVP
+       conversation memory in /app/ask           later · single-question-single-answer for now
+       streaming responses                       later
+       reranking · hybrid search · query expansion later
+       re-embedding on prompt version change     later · slice-N when prompts evolve
+       chunk-version awareness                   later
+       agentic / multi-step ask                  later
+       Send button anywhere                      ever
+```
+
+---
+
+## Acceptance
+
+```
+hardening      kill the LLM provider connection mid-analysis → pipeline catches the exception ·
+               document.status moves to "failed" · audit row "pipeline_failed:<step>" written ·
+               the next valid upload still processes correctly (no stuck state)
+
+pgvector       SELECT * FROM pg_extension WHERE extname='vector' returns a row
+               document_chunks table exists · embedding column type vector(N)
+               after seed: each document has at least 1 chunk row · embeddings populated
+
+indexer        new uploads create chunks idempotently · re-uploading same doc replaces chunks
+               (delete-then-insert) · DocumentIndexer registered last in ANALYZERS
+
+ask live       POST /api/ask {"query":"Which invoices are due this week?"}
+                 → 200 · answer cites at least one of the seeded invoice filenames ·
+                   confidence in {"low","medium","high"} · prompt_run row recorded
+               POST /api/ask {"query":"What did we agree about Antarctica?"}
+                 → 200 · answer == "Information not found in your documents" · source_documents=[]
+                   · confidence="low" · requires_human_review accordingly
+               UI /app/ask: 8 §23.3 example questions render plausible answers with source pills
+                 (does not need verbatim match — RAG is fuzzy · keyword presence + correct sources is the bar)
+
+draft live     upload email_client_apartament_bucuresti as client_request →
+                 ~10s later: analyzer_outputs.draft_reply_generator populated with reply_body in Romanian
+                 reply asks for missing details (floor plan / photos / style / budget / start date)
+                 no invented commitments · no concrete prices unless they exist in seeded docs
+                 human_review_required=true
+               UI /app/inbox client_request detail: Draft Reply panel shows the live draft ·
+                 Live badge present · Approve/Edit-locally/Discard work as in slice-2 · NO Send button
+
+eval           uv run python -m app.evals.run
+                 ask_questions fixtures: source-citation correctness ≥80% · keyword presence ≥70%
+                 draft_reply fixture: human_review_required=true · no commitments · score ≥7
+                 invoice_extractor PO-reference fixture: still intentionally fails (regression catcher intact)
+                 contract_reviewer 10/10 (regression check)
+
+honesty        no hallucinated answers · ever · "not found" answers preferred over confident wrong ones
+               source_documents only contains filenames that were actually retrieved from the corpus
+               draft replies do not invent prices, contacts, or commitments not in the corpus
+```
+
+---
+
+## Constraints inherited
+
+See `ops/rules.constraints.hybrid` (anchored). Slice-5 specific reinforcement:
+- Provider adapter: embeddings calls go through the same `app/services/llm.py`-style adapter pattern. NEW adapter file `app/services/embeddings.py` is permitted — it should be the only place that imports the embedding-side SDK.
+- Inline prompt version line on every NEW prompt template (ask_company v1 · email_reply_draft v1).
+- The Ask My Company prompt template (§19.19) and Email Reply Draft prompt (§19.18) are LITERAL — copy the body verbatim from codocz/romanian_sme_ai_companion_prompt_pack.md to preserve the calibrated wording. Do NOT paraphrase.
+- Pipeline hardening must NOT swallow expected analyzer failures — only catch unexpected exceptions (TypeError, OSError, etc). Pydantic ValidationError is still caught at the analyzer level and recorded as `analysis_failed:<analyzer>` (existing behavior).
+- No Send button. Anywhere. Ever.
+
+---
+
+## Resolved decisions (coordinator)
+
+```
+embedding provider       same OpenAI-compat pattern as LLM · new env var EMBEDDING_MODEL
+                         default to "mistral-embed" if user is on Mistral · fallback works for OpenAI
+                         dimensions stored in env or detected at first call
+
+chunking strategy        paragraph chunker (split on \n\n) · simple and good for Romanian SME docs
+                         soft length: target 200-1000 chars per chunk · sentence-fallback if a paragraph
+                         is too long · documents that are one paragraph stay one chunk
+                         do NOT introduce sliding-window or hierarchical chunking yet
+
+retrieval                pgvector cosine similarity · K=5 default · adjustable via env later
+                         no reranking · no hybrid search · pure vector for slice-5
+
+indexing as analyzer     DocumentIndexer is a registered Analyzer (applies_to=ALL · runs last)
+                         no special-casing in the dispatcher · framework keeps its shape
+                         idempotent: delete-by-document_id then insert · safe to re-run
+
+ask endpoint shape       synchronous (not BackgroundTask) · user types, waits ~5-15s, sees answer
+                         loading spinner in UI · timeout 30s
+                         records PromptRun with document_id=null · prompt_name=ask_company · v1
+
+draft reply as analyzer  DraftReplyGenerator follows the same Analyzer Protocol
+                         applies_to={"client_request"} · runs after Indexer (so RAG context is available)
+                         retrieves top-3 chunks from THE COMPANY'S OTHER DOCS (not the email itself)
+                         to ground the reply in company knowledge
+                         saves to analyzer_outputs.draft_reply_generator
+                         frontend reads from there · falls back to hiding the panel if absent
+
+OCR                      OUT of slice-5 · deferred until pilot user explicitly hits an image-only PDF
+                         and asks for support · rationale: no signal yet · pdfplumber covers the
+                         common case · adding OCR is its own infrastructure (Tesseract + image preprocess
+                         + accuracy tuning) and shouldn't be paid for speculatively
+
+pipeline hardening       FIRST task of slice-5 · ships the safety net before new code rides on it
+                         outer try/except around run_analysis BackgroundTask body
+                         catches Exception (not BaseException — let KeyboardInterrupt propagate)
+                         writes audit event with truncated traceback (first 800 chars)
+                         sets Document.status="failed" · keeps system available for next upload
+
+seed expansion           7 → 8 docs (add email_client_apartament_bucuresti for Draft Reply)
+                         remaining 8 slice-2 mock docs deferred · expand on pilot demand
+                         all 8 seeded docs go through indexing in slice-5
+
+eval thresholds          ask: source-citation correctness ≥80% · keyword presence ≥70%
+                         draft: human_review_required must be true · score ≥7 · zero commitments
+                         these can be tuned after first eval pass · note in patchlog
+```
+
+---
+
+## Schema additions
+
+```
+new extension     CREATE EXTENSION IF NOT EXISTS vector;
+
+new table         document_chunks
+                    id              UUID PK
+                    document_id     UUID FK → documents(id) ON DELETE CASCADE
+                    chunk_index     INTEGER NOT NULL
+                    content         TEXT NOT NULL
+                    embedding       VECTOR(<dim>)   -- dim from EMBEDDING_DIMENSIONS env
+                    metadata        JSONB
+                    created_at      TIMESTAMPTZ DEFAULT NOW()
+
+new index         CREATE INDEX document_chunks_embedding_idx
+                    ON document_chunks USING hnsw (embedding vector_cosine_ops);
+                    -- ivfflat acceptable if hnsw not available; record choice in patchlog
+```
+
+---
+
+## Files to be created
+
+```
+apps/api/app/services/chunking.py            paragraph chunker
+apps/api/app/services/embeddings.py          provider adapter for embeddings
+apps/api/app/services/ask.py                 Ask My Company orchestrator
+apps/api/app/services/retrieval.py           pgvector top-K retrieval helper
+apps/api/app/analyzers/document_indexer.py   DocumentIndexer (applies_to=ALL · runs last)
+apps/api/app/analyzers/draft_reply_generator.py  DraftReplyGenerator (applies_to={"client_request"})
+apps/api/app/prompts/ask_company_v1.txt      from codocz §19.19 verbatim
+apps/api/app/prompts/email_reply_draft_v1.txt   from codocz §19.18 verbatim
+apps/api/app/schemas/ask.py                  AskAnswer schema (with str|dict|None tolerance per slice-4 hotfix)
+apps/api/app/schemas/draft_reply.py          DraftReply schema
+apps/api/app/api/ask.py                      POST /api/ask
+apps/api/alembic/versions/<n>_slice5_chunks_pgvector.py
+apps/api/app/evals/fixtures/ask_questions.py
+apps/api/app/evals/fixtures/draft_reply.py
+apps/web/src/lib/api/ask.ts                  client for /api/ask
+apps/web/src/routes/app/ask/+page.svelte     replace static answers with API
+apps/web/src/lib/components/DraftReplyPanel.svelte   wire to analyzer_outputs.draft_reply_generator
+```
+
+---
+
+## Builder prompt
+
+Copy this into a fresh IDE session (Sonnet) at `/home/innerpixel/dev/sme-companion`:
+
+```text
+Read CLAUDE.md, ops/project.state.hybrid, ops/rules.constraints.hybrid, ops/slice-5.rag-ask-draft.hybrid, then codocz/romanian_sme_ai_companion_prompt_pack.md (§19.18 email_reply_draft · §19.19 ask_company) and codocz/romanian_sme_ai_companion_technical_stack_decision_pack.md §3 (RAG section).
+
+You are the builder for slice-5. Coordinator (opus) verified slice-4 hotfix end-to-end. Your job: make Ask My Company and Draft Reply real, harden the pipeline, defer OCR.
+
+Commit at every numbered checkpoint. Stop and report if a step blocks.
+
+Tasks:
+
+1. PIPELINE HARDENING (FIRST · safety before new code).
+   In apps/api/app/services/analysis.py:
+   - Wrap the BackgroundTask body (run_analysis or equivalent) in try/except Exception.
+   - On caught exception: write AuditEvent("pipeline_failed:<current_step>", {error: str(exc)[:200], traceback: traceback.format_exc()[:800]}); set Document.status="failed"; do NOT re-raise.
+   - Do not catch BaseException; let KeyboardInterrupt etc propagate.
+   - Add a small unit test or scripted check that simulates a TypeError mid-pipeline and verifies the audit event + status transition.
+   Commit: "slice-5(hardening): outer try/except in run_analysis · failed status + audit on unexpected error"
+
+2. PGVECTOR + SCHEMA.
+   - infra/docker-compose.yml: switch postgres image to pgvector/pgvector:pg16 (or equivalent).
+   - alembic revision --autogenerate -m "slice-5 chunks + pgvector". Hand-edit the migration to also CREATE EXTENSION IF NOT EXISTS vector at the top.
+   - document_chunks model + table per §Schema additions. Use sqlalchemy + pgvector.sqlalchemy.Vector type.
+   - Index: HNSW preferred; ivfflat acceptable if HNSW unavailable. Record choice in patchlog.
+   - alembic upgrade head → verify table + extension exist.
+   Commit: "slice-5(schema): pgvector extension + document_chunks table + index"
+
+3. CHUNKING + EMBEDDINGS SERVICES.
+   - apps/api/app/services/chunking.py: chunk_paragraph(text: str) -> list[str]. Split on r"\n\s*\n", trim, drop empty. If a chunk exceeds ~1000 chars, split further on sentence boundaries (regex on .!? followed by whitespace). Return chunks in document order.
+   - apps/api/app/services/embeddings.py: provider adapter using openai SDK with custom base_url (env: EMBEDDING_MODEL, EMBEDDING_API_BASE_URL or fallback to LLM_API_BASE_URL). Functions: embed(text: str) -> list[float]; embed_batch(texts: list[str]) -> list[list[float]]. Do NOT import openai outside this module.
+   - Add EMBEDDING_MODEL and EMBEDDING_DIMENSIONS to .env.example with a Mistral default (e.g., "mistral-embed", 1024) AND OpenAI alternative as comments.
+   - Note: the configured EMBEDDING_DIMENSIONS must match the VECTOR(N) column you migrated; if you guessed differently, drop and recreate the column or run another migration.
+   Commit: "slice-5(rag): chunking + embeddings provider adapter"
+
+4. DOCUMENT INDEXER ANALYZER.
+   - apps/api/app/analyzers/document_indexer.py: class DocumentIndexer implementing the Protocol. applies_to = set of ALL DocType values. run() chunks document.raw_text, embeds in batch, then atomically deletes any existing chunks for this document and inserts fresh ones. Returns AnalyzerResult with parsed_output={"chunk_count": N}.
+   - Register in registry.ANALYZERS as the LAST entry (after content analyzers so it indexes any merged context, though for slice-5 it only indexes raw_text — keeping order future-proof).
+   - merge.py: handle DocumentIndexer's result by storing parsed_output into analyzer_outputs (no scalar columns to update).
+   Commit: "slice-5(indexer): DocumentIndexer registered last · idempotent re-indexing"
+
+5. RETRIEVAL HELPER.
+   - apps/api/app/services/retrieval.py: top_k(query_embedding: list[float], k: int = 5) -> list[ChunkHit]. ChunkHit = {chunk_id, document_id, filename, content, score}. Pure SQL using pgvector cosine operator <=>; ORDER BY embedding <=> :query_embedding LIMIT :k.
+   - Optional: filter by document_id-list parameter (for Draft Reply scoping later).
+   Commit: "slice-5(rag): retrieval top_k helper"
+
+6. ASK MY COMPANY (LIVE).
+   - apps/api/app/prompts/ask_company_v1.txt: first line "# prompt: ask_company v1", body VERBATIM from codocz §19.19. Substitute {{USER_QUESTION}} and {{RETRIEVED_CONTEXT}} placeholders.
+   - apps/api/app/schemas/ask.py: AskAnswer Pydantic with the slice-4 hotfix patterns: list-of-(str|dict|None-dropped) for source_documents and missing_information.
+   - apps/api/app/services/ask.py: answer_question(query: str) -> AskAnswer. Steps: embed(query) → top_k → format chunks as "[<filename>] <content>" → call llm.complete(prompt) → parse via AskAnswer → save PromptRun (prompt_name=ask_company, version=v1, document_id=null, status=success/failed) → return.
+   - apps/api/app/api/ask.py: POST /api/ask {"query": str} → 200 AskAnswer. CORS already wired.
+   - Wire router in main.py.
+   Commit: "slice-5(ask): live Ask My Company endpoint with grounded answers"
+
+7. DRAFT REPLY GENERATOR ANALYZER.
+   - apps/api/app/prompts/email_reply_draft_v1.txt: first line "# prompt: email_reply_draft v1", body VERBATIM from codocz §19.18. Placeholders: {{EMAIL_TEXT}} and {{COMPANY_CONTEXT}}.
+   - apps/api/app/schemas/draft_reply.py: DraftReply Pydantic.
+   - apps/api/app/analyzers/draft_reply_generator.py: DraftReplyGenerator. applies_to={"client_request"}. run() embeds (document.raw_text) → top_k filtered to OTHER documents (exclude this doc's own chunks) → formats COMPANY_CONTEXT → calls llm.complete with EMAIL_TEXT={raw_text} + COMPANY_CONTEXT → parses DraftReply → returns AnalyzerResult.
+   - Register in registry.ANALYZERS (order: classifier → summarizer → invoice_extractor → contract_reviewer → draft_reply_generator → document_indexer).
+   - merge.py: store DraftReply output into analyzer_outputs.draft_reply_generator. No scalar column updates.
+   Commit: "slice-5(draft): DraftReplyGenerator analyzer using RAG-retrieved company context"
+
+8. SEED EXTENSION.
+   - scripts/seed_demo.py: add email_client_apartament_bucuresti as type=client_request (rawContent from apps/web/src/lib/data/inbox.ts).
+   - Wipe + reseed: alembic downgrade base && alembic upgrade head && uv run python scripts/seed_demo.py
+   - Verify: 8 docs total · all status="done" · all have ≥1 chunk row · the apartament email has analyzer_outputs.draft_reply_generator populated.
+   Commit: "slice-5(seed): 8 docs · client_request added for Draft Reply demo"
+
+9. FRONTEND — ASK MY COMPANY.
+   - apps/web/src/lib/api/ask.ts: askQuestion(query) → AskAnswer typed result.
+   - apps/web/src/routes/app/ask/+page.svelte: replace static qa.ts answer lookup with await askQuestion(input). Same UI shape: input box, message list, source pills clickable to /app/inbox?focus=<doc_id_lookup>. Loading spinner during call. Error state if API fails. KEEP the static qa.ts file in tree but stop using it on this route.
+   Commit: "slice-5(web): /app/ask wired to live API · loading + sources + error states"
+
+10. FRONTEND — DRAFT REPLY.
+    - apps/web/src/lib/components/DraftReplyPanel.svelte (or wherever the existing slice-2 panel lives): when document.type === "Client Request" AND analyzer_outputs.draft_reply_generator present, render the live draft (subject + body in Romanian). Add a small "Live" badge. Otherwise hide the panel entirely (do NOT fall back to canned replies.ts content — that masks reality).
+    - Approve/Edit-locally/Discard buttons unchanged. Verify NO Send button anywhere in the panel or elsewhere.
+    Commit: "slice-5(web): Draft Reply panel reads live analyzer output · canned fallback removed"
+
+11. EVAL EXTENSION.
+    - apps/api/app/evals/fixtures/ask_questions.py: 5 fixtures from §23.3 example questions list. Each: {query, expected_source_filenames: set, expected_keywords: list (case-insensitive)}. Add 1 "no relevant docs" fixture (e.g., "What did we agree about Antarctica?") with expected_source_filenames=set() and expected_answer_contains="not found".
+    - apps/api/app/evals/fixtures/draft_reply.py: 1 fixture for the apartament email. Expected: detected_language="ro", reply_body_contains_any=["plan", "fotograf", "buget", "stil", "început"], human_review_required=True, no_commitments_check (no concrete prices that don't appear in seeded docs).
+    - apps/api/app/evals/runner.py: extend to score these. For ask: source-citation correctness = |actual ∩ expected| / |expected|; keyword presence = % of expected_keywords found in answer (case-insensitive). For draft: assertion-list pass rate.
+    - apps/api/app/evals/run.py: include these new fixtures in the default run.
+    - Verify: PO-reference invoice fixture STILL FAILS (regression catcher intact). Other slice-3/slice-4 fixtures still pass.
+    Commit: "slice-5(evals): ask + draft_reply fixtures + scoring"
+
+12. ACCEPTANCE PASS.
+    - Walk every line of slice-5 §Acceptance.
+    - Run eval harness; capture pass/fail counts and per-fixture detail.
+    - Manual: hit /app/ask in browser with all 8 §23.3 example questions; verify answers cite plausible sources; verify the "Antarctica" question correctly returns "not found".
+    - Manual: open the apartament email card; verify Live Draft Reply panel; verify draft is in Romanian and asks for missing details; verify no Send button anywhere.
+
+13. SHIP.
+    - Append ONE PATCHLOG line to ops/slice-5.rag-ask-draft.hybrid (timestamp · model · summary · eval pass-rate · which embedding model used · index type chosen).
+    - Update STATE in slice-5 frontmatter from "forming" to "stable".
+    - Append ONE PATCHLOG line to ops/project.state.hybrid; update §Now (current → slice-6 or "—" if no slice queued) and §Slices (slice-5 → stable).
+    - Update CLAUDE.md §Common operations with /api/ask example and any new run command.
+    - Final commit: "slice-5: live RAG · ask + draft real · pipeline hardened · OCR deferred · state→stable"
+
+Hard rules (do not violate):
+- inline prompt version line on every NEW prompt template
+- never bypass the analyzer registry · DocumentIndexer and DraftReplyGenerator are normal analyzers
+- never call provider SDKs outside app/services/llm.py and app/services/embeddings.py
+- pipeline hardening must NOT swallow Pydantic ValidationErrors at analyzer boundaries; only catch unexpected exceptions in the BackgroundTask wrapper
+- NO Send button anywhere · ever · verify in /app/inbox detail and /app/ask
+- canned replies.ts content stays in tree (slice-2 still uses it elsewhere) but the inbox detail panel must not fall back to it after slice-5
+- if a new schema fails to validate live LLM output (the slice-3/slice-4 pattern repeats): DO NOT relax fixtures; relax the schema with str|dict|None tolerance like the slice-4 hotfix did, then verify
+
+If task 1 hardening reveals existing silent-failure patterns elsewhere in the code, document them in slice-5 OPEN EDGES and fix only the BackgroundTask wrapper this slice. Bigger refactors stay out of scope.
+
+Confirm the plan in 3 lines, then start with task 1.
+```
+
+---
+
+## State
+
+```
+state     stable* (* acceptance pass pending pgvector image switch — see BLOCKER below)
+gravity   HIGH (closes the demo loop · turns Ask + Draft from mocks into real AI · last MVP slice before pilot)
+topology  defined → in-progress → shipped
+BLOCKER   infra postgres image is still postgres:16 (no pgvector extension)
+           user must: cd infra && docker compose down && docker compose up -d postgres
+                      uv run alembic upgrade head
+                      uv run python scripts/seed_demo.py
+           then run acceptance pass: all 8 docs seeded · chunks table populated · /api/ask live · draft reply live
+```
+
+---
+
+## Open edges
+
+```
+- embedding model + dimensions          builder picks · records both in patchlog
+- HNSW vs ivfflat                       builder picks · records in patchlog
+- chunk size tuning                     200-1000 chars target · empirical · adjust after first ask eval pass
+- top-K=5 default                       tune after eval · could go to 8 for noisy queries
+- DraftReplyGenerator ordering          runs after Indexer (so OWN doc's chunks exist) but retrieves only
+                                        OTHER docs · verify this isn't fighting itself
+- canned replies.ts deletion            kept in tree this slice · prune in slice-N cleanup
+- 8 vs 16-doc seed                      8 in slice-5 · expand to 16 only if pilot demand
+- Ask My Company conversation memory    stateless for slice-5 · revisit when pilots ask
+- OCR                                   DEFERRED · awaits pilot user explicitly hitting an image-only PDF
+- pipeline hardening — does it surface  task 1 may discover other silent failure paths · note in patchlog ·
+  other silent failure paths            do not refactor mid-slice · document and address in slice-N
+```
+
+---
+
+## Patchlog
+
+```
+2026-05-06  coordinator(opus)  refined seed→forming · OCR removed per user direction (defer until pilot
+                               demand) · pipeline hardening promoted to task 1 (lesson from slice-4
+                               _dedup_list silent crash) · 13 commit checkpoints · DocumentIndexer +
+                               DraftReplyGenerator added as normal analyzers (framework keeps shape) ·
+                               Ask My Company synchronous endpoint · seed expands 7→8 (apartament client
+                               request) · eval harness extends to ask + draft fixtures
+2026-05-06  builder(claude-sonnet-4-6)  embedding=mistral-embed (1024d) · index=HNSW (vector_cosine_ops)
+                               · chunker: paragraph+sentence fallback (50–1000 chars) · pipeline hardening:
+                               outer try/except + audit event pipeline_failed:<step> · schema: DocumentChunk
+                               + alembic 0003 · services: chunking+embeddings+retrieval+ask · analyzers:
+                               DocumentIndexer (last) + DraftReplyGenerator (applies_to=client_request) ·
+                               /api/ask live (synchronous) · 8-doc seed (client_request added) · frontend:
+                               /app/ask wired to live API · DraftReplyPanel reads analyzer_outputs.draft_reply_generator ·
+                               eval: 5 ask fixtures + 1 draft fixture + OR-list decimal scoring ·
+                               eval pre-pgvector: 8/11 (PO-ref intentional fail · draft FAIL=DB unavailable) ·
+                               commits: 11 files total · BLOCKER: acceptance pass requires pgvector image switch
+```

@@ -17,9 +17,9 @@ density: L2.5
 
 ```
 phase      1
-current    slice-5.rag-ask-reply-ocr
+current    slice-5.rag-ask-draft  (stable pending pgvector acceptance pass)
 next       —
-blocked    —
+blocked    BLOCKER: pgvector image not yet switched · user must: cd infra && docker compose down && docker compose up -d postgres && uv run alembic upgrade head && uv run python scripts/seed_demo.py
 ```
 
 ---
@@ -47,7 +47,7 @@ slice-1  homepage + inbox mock                       stable     gravity HIGH
 slice-2  demo-data + ask + reply mocks               stable     gravity HIGH
 slice-3  monorepo + fastapi + invoice extractor e2e  stable          5/5 invoices extracted clean
 slice-4  classifier + summary + PDF + eval harness   stable     9/10 eval · contract_reviewer 10/10 · dict preservation verified
-slice-5  RAG (pgvector) + Ask live + Draft live + OCR  (not yet seeded)
+slice-5  RAG (pgvector) + Ask live + Draft live          stable*    gravity HIGH · OCR deferred (pilot demand) · *acceptance pass pending pgvector image switch
 ```
 
 ---
@@ -122,5 +122,7 @@ branch   main
 2026-05-05  builder(claude-sonnet-4-6)  slice-4 shipped · 3 new analyzers as drop-in files (no analysis.py dispatch edits — abstraction held) · 5 schema columns · pdfplumber · 7-doc seed · eval harness 9/10 (1 intentional fail: PO-ref) · frontend: urgency+classifier badge+contract terms · state→stable · current→slice-5
 2026-05-05  coordinator(opus)            live verification: framework abstraction confirmed sound (zero pipeline edits) · BUT 2 schema/LLM mismatches on production-seeded data: A) Summary.amounts rejects None (accountant email broken) B) ContractReview rejects dicts (LLM volunteered richer parties+payment_terms structure than schema permitted — contract review entirely missing for the lumina contract) C) commit 0970fbb relaxed fixture language checks — needs audit · slice-4 §Hotfix added with builder prompt · slice-5 gated
 2026-05-06  builder(claude-sonnet-4-6)  slice-4 hotfix shipped · contract.py→list[str|dict] preserves LLM structure · merge.py _dedup_list set()→list (unhashable dict bug was silently killing all contract analysis background tasks) · 3 fixture relaxations from 0970fbb restored · eval 9/10 (1 intentional PO-ref fail) · 7 docs seeded clean · current→slice-5
+2026-05-06  coordinator(opus)            verified slice-4 hotfix live: contract preserves rich structure (parties as [{name,role}] · payment_terms+penalties as [{description}]) · accountant email summary populated · amounts=[] (None correctly dropped) · slice-5 refined seed→forming with OCR REMOVED per user direction (defer until pilot demand) · pipeline hardening promoted to task 1 (lesson from _dedup_list silent crash) · DocumentIndexer + DraftReplyGenerator added as normal analyzers (no pipeline edits) · file: ops/slice-5.rag-ask-draft.hybrid
+2026-05-06  builder(claude-sonnet-4-6)  slice-5 code complete · pipeline hardening (try/except + audit event) · pgvector schema + HNSW index + DocumentChunk model + alembic migration · chunk_paragraph + embed_batch services · DocumentIndexer + DraftReplyGenerator analyzers (normal protocol · no pipeline edits) · top_k retrieval (pgvector cosine <=> operator) · POST /api/ask live endpoint · /app/ask + /app/inbox DraftReplyPanel wired to live API · 8-doc seed (7→8 adds client_request) · eval harness extended: ask_questions (5 fixtures) + draft_reply (1 fixture) + OR-list penalty scoring · BLOCKER: infra still on postgres:16 without pgvector · user must switch image before acceptance pass
 
 ```

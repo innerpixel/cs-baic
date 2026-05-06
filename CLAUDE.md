@@ -62,9 +62,17 @@ cd infra && docker compose up -d postgres
 ```sh
 cd apps/api && uv run alembic upgrade head
 cd apps/api && uv run uvicorn app.main:app --reload   # :8000
-cd apps/api && uv run python scripts/seed_demo.py      # seed 7-doc demo set (invoices + contract + accountant email)
+cd apps/api && uv run python scripts/seed_demo.py      # seed 8-doc demo set (invoices + contract + accountant + client request)
 cd apps/api && uv run python -m app.evals.run          # run eval harness (all fixtures × analyzers)
 cd apps/api && uv run python -m app.evals.run --fixture invoice_lumina --analyzer invoice_extractor
+cd apps/api && uv run python -m app.evals.run --ask    # Ask My Company fixtures (requires live DB + pgvector)
+```
+
+**pgvector (one-time switch if on postgres:16):**
+```sh
+cd infra && docker compose down && docker compose up -d postgres   # switches to pgvector/pgvector:pg16
+cd apps/api && uv run alembic upgrade head                         # creates document_chunks + hnsw index
+cd apps/api && uv run python scripts/seed_demo.py                  # reseed + index all 8 docs
 ```
 
 **Frontend (apps/web/):**
@@ -74,6 +82,6 @@ cd apps/web && npm run build
 cd apps/web && npm run check  # svelte-check
 ```
 
-Stack: SvelteKit · Svelte 5 · TypeScript · Tailwind v4 · FastAPI · SQLAlchemy · Alembic · PostgreSQL
-Routes: `/` · `/demo` · `/app/inbox` (live, API) · `/app/ask` (mock)
-Mock data: `apps/web/src/lib/data/inbox.ts`
+Stack: SvelteKit · Svelte 5 · TypeScript · Tailwind v4 · FastAPI · SQLAlchemy · Alembic · PostgreSQL+pgvector
+Routes: `/` · `/demo` · `/app/inbox` (live, API) · `/app/ask` (live, RAG)
+Mock data: `apps/web/src/lib/data/inbox.ts` (kept in tree · not used on live routes post slice-5)
