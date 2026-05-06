@@ -1,45 +1,27 @@
+from typing import Any
 from pydantic import BaseModel, field_validator
 
 
-def _coerce_str_list(v: object) -> list[str]:
-    """Flatten a list that may contain strings or dicts (LLM may return structured objects)."""
+def _drop_nulls(v: object) -> list[str | dict[str, Any]]:
+    """Accept a list of strings or dicts; drop None elements; preserve LLM structure."""
     if not isinstance(v, list):
         return []
-    result = []
-    for item in v:
-        if isinstance(item, str):
-            result.append(item)
-        elif isinstance(item, dict):
-            # Join all string values from the dict into a readable sentence
-            parts = [str(val) for val in item.values() if val is not None]
-            result.append(": ".join(parts) if len(parts) > 1 else parts[0] if parts else "")
-        else:
-            result.append(str(item))
-    return [s for s in result if s]
-
-
-def _coerce_str_or_dict(v: object) -> str | None:
-    if v is None or isinstance(v, str):
-        return v
-    if isinstance(v, dict):
-        parts = [str(val) for val in v.values() if val is not None]
-        return "; ".join(parts) if parts else None
-    return str(v)
+    return [item for item in v if item is not None]
 
 
 class ContractReview(BaseModel):
     contract_type: str | None = None
-    parties: list[str] = []
+    parties: list[str | dict[str, Any]] = []
     start_date: str | None = None
     end_date: str | None = None
-    payment_terms: list[str] = []
-    obligations: list[str] = []
-    termination_terms: list[str] = []
-    penalties: list[str] = []
-    renewal_clause: str | None = None
-    important_dates: list[str] = []
-    risk_flags: list[str] = []
-    questions_for_human_review: list[str] = []
+    payment_terms: list[str | dict[str, Any]] = []
+    obligations: list[str | dict[str, Any]] = []
+    termination_terms: list[str | dict[str, Any]] = []
+    penalties: list[str | dict[str, Any]] = []
+    renewal_clause: str | dict[str, Any] | None = None
+    important_dates: list[str | dict[str, Any]] = []
+    risk_flags: list[str | dict[str, Any]] = []
+    questions_for_human_review: list[str | dict[str, Any]] = []
     plain_language_summary: str | None = None
     recommended_next_action: str | None = None
 
@@ -49,10 +31,5 @@ class ContractReview(BaseModel):
         mode="before",
     )
     @classmethod
-    def coerce_str_list(cls, v: object) -> list[str]:
-        return _coerce_str_list(v)
-
-    @field_validator("renewal_clause", mode="before")
-    @classmethod
-    def coerce_renewal(cls, v: object) -> str | None:
-        return _coerce_str_or_dict(v)
+    def drop_nulls(cls, v: object) -> list[str | dict[str, Any]]:
+        return _drop_nulls(v)

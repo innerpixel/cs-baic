@@ -14,6 +14,19 @@ def _find_analyzer(name: str):
     return None
 
 
+def _flatten_list(items: list) -> str:
+    """Flatten a list of strings or dicts to a single searchable string."""
+    parts = []
+    for item in items:
+        if isinstance(item, str):
+            parts.append(item)
+        elif isinstance(item, dict):
+            parts.extend(str(v) for v in item.values() if v is not None)
+        else:
+            parts.append(str(item))
+    return " ".join(parts)
+
+
 def _check_expected(actual_dict: dict, expected: dict) -> tuple[list[str], list[str], list[str]]:
     """Return (critical_errors, minor_errors, hallucinations)."""
     critical = []
@@ -38,14 +51,14 @@ def _check_expected(actual_dict: dict, expected: dict) -> tuple[list[str], list[
             continue
 
         if key == "payment_terms_contains":
-            actual_pt = " ".join(actual_dict.get("payment_terms", [])).lower()
+            actual_pt = _flatten_list(actual_dict.get("payment_terms", [])).lower()
             for phrase in exp_val:
                 if phrase.lower() not in actual_pt:
                     critical.append(f"payment_terms: expected phrase '{phrase}' not found (actual: {actual_pt!r})")
             continue
 
         if key == "penalties_contains":
-            actual_pen = " ".join(actual_dict.get("penalties", [])).lower()
+            actual_pen = _flatten_list(actual_dict.get("penalties", [])).lower()
             for phrase in exp_val:
                 if phrase.lower() not in actual_pen:
                     critical.append(f"penalties: expected phrase '{phrase}' not found (actual: {actual_pen!r})")
