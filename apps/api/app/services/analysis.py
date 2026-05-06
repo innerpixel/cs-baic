@@ -48,7 +48,13 @@ def run_analysis(document_id: uuid.UUID, db: Session) -> None:
                 model=settings.llm_model,
                 input_text=result.prompt_input,
                 input_hash=hashlib.sha256(result.prompt_input.encode()).hexdigest(),
-                output_json=result.parsed_output.model_dump() if result.status == "success" and result.parsed_output else None,
+                output_json=(
+                    result.parsed_output.model_dump()
+                    if result.status == "success" and result.parsed_output and hasattr(result.parsed_output, "model_dump")
+                    else result.parsed_output
+                    if isinstance(result.parsed_output, dict)
+                    else None
+                ),
                 status=result.status,
                 error_message=result.error_message,
                 created_at=now,

@@ -10,7 +10,7 @@ from app.analyzers.base import AnalyzerResult
 from app.db.session import SessionLocal
 from app.schemas.draft_reply import DraftReply
 from app.services.embeddings import embed
-from app.services.llm import complete
+from app.services.llm import complete, strip_json_fences
 from app.services.retrieval import top_k
 
 _PROMPT_PATH = Path(__file__).parent.parent / "prompts" / "email_reply_draft_v1.txt"
@@ -59,7 +59,7 @@ class DraftReplyGenerator:
             raw_output = complete(prompt)
 
             try:
-                data = json.loads(raw_output)
+                data = json.loads(strip_json_fences(raw_output))
                 draft = DraftReply(**data)
                 status = "success"
                 error_msg = None

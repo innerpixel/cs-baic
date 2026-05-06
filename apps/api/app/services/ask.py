@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from app.db.models import PromptRun
 from app.schemas.ask import AskAnswer
 from app.services.embeddings import embed
-from app.services.llm import complete
+from app.services.llm import complete, strip_json_fences
 from app.services.retrieval import top_k
 
 _PROMPT_PATH = Path(__file__).parent.parent / "prompts" / "ask_company_v1.txt"
@@ -49,7 +49,7 @@ def answer_question(query: str, db: Session) -> AskAnswer:
     raw_output = complete(prompt)
 
     try:
-        data = json.loads(raw_output)
+        data = json.loads(strip_json_fences(raw_output))
         answer = AskAnswer(**data)
     except Exception:
         answer = AskAnswer(

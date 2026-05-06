@@ -14,6 +14,18 @@ def _get_client() -> OpenAI:
     return _client
 
 
+def strip_json_fences(text: str) -> str:
+    """Remove markdown code fences (```json ... ```) that some LLMs add around JSON output."""
+    text = text.strip()
+    if text.startswith("```"):
+        # Drop opening fence line
+        text = text[text.index("\n") + 1:] if "\n" in text else text
+        # Drop closing fence
+        if text.rstrip().endswith("```"):
+            text = text.rstrip()[:-3].rstrip()
+    return text.strip()
+
+
 def complete(prompt: str, model: str | None = None) -> str:
     client = _get_client()
     response = client.chat.completions.create(
