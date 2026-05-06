@@ -194,7 +194,7 @@ def upload(doc: dict) -> str:
         return json.loads(resp.read())["id"]
 
 
-def poll(doc_id: str, max_wait: int = 90) -> dict | None:
+def poll(doc_id: str, max_wait: int = 180) -> dict | None:
     for _ in range(max_wait // 2):
         req = urllib.request.Request(f"{API_BASE}/api/documents/{doc_id}")
         with urllib.request.urlopen(req) as resp:
