@@ -19,6 +19,8 @@ def health():
 
 from app.api.documents import router as documents_router
 from app.api.audit import router as audit_router
+from app.api.ask import router as ask_router
 
 app.include_router(documents_router, prefix="/api")
 app.include_router(audit_router, prefix="/api")
+app.include_router(ask_router, prefix="/api")

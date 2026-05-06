@@ -3,6 +3,7 @@ from app.schemas.classification import Classification
 from app.schemas.contract import ContractReview
 from app.schemas.extraction import InvoiceExtraction
 from app.schemas.summary import Summary
+from app.schemas.draft_reply import DraftReply
 
 
 def _dedup_list(existing: list | None, new_items: list) -> list:
@@ -64,5 +65,13 @@ def merge_into_analysis(analysis: dict, result: AnalyzerResult) -> dict:
             analysis.get("risk_flags"), review.risk_flags
         )
         outputs[result.analyzer_name] = review.model_dump()
+
+    elif isinstance(result.parsed_output, DraftReply):
+        draft: DraftReply = result.parsed_output
+        outputs[result.analyzer_name] = draft.model_dump()
+
+    elif isinstance(result.parsed_output, dict):
+        # DocumentIndexer and similar dict-result analyzers (e.g. chunk_count)
+        outputs[result.analyzer_name] = result.parsed_output
 
     return analysis
