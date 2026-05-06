@@ -151,6 +151,27 @@ Contractul este valabil până la 31.12.2026 și se poate prelungi prin acord sc
 Oricare parte poate denunța contractul cu notificare scrisă transmisă cu 30 de zile înainte.""",
     },
     {
+        "filename": "email_client_apartament_bucuresti.txt",
+        "type": "client_request",
+        "text": """\
+Subiect: Cerere ofertă amenajare apartament 3 camere
+
+Bună ziua,
+
+Am găsit portofoliul Atelier Nova și am dori o ofertă pentru amenajarea unui apartament de 3 camere în București, aproximativ 78 mp.
+
+Ne interesează:
+- consultanță design interior
+- propunere cromatică
+- recomandări mobilier
+- eventual coordonare furnizori
+
+Am vrea să începem în luna iunie. Ne puteți spune ce informații aveți nevoie și care este un cost estimativ?
+
+Mulțumesc,
+Radu Enache""",
+    },
+    {
         "filename": "email_accountant_missing_docs_april.txt",
         "type": "accountant_request",
         "text": """\
@@ -231,7 +252,7 @@ def main():
         else:
             print(f"status={status}")
 
-    print("\nDone. Run GET /api/documents to verify 7 rows.")
+    print("\nDone. Run GET /api/documents to verify 8 rows.")
 
 
 if __name__ == "__main__":
