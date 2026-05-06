@@ -6,11 +6,9 @@ from app.schemas.summary import Summary
 
 
 def _dedup_list(existing: list | None, new_items: list) -> list:
-    seen = set(existing or [])
     result = list(existing or [])
     for item in new_items:
-        if item not in seen:
-            seen.add(item)
+        if item not in result:
             result.append(item)
     return result
 
