@@ -1,10 +1,11 @@
 """Eval runner: runs analyzers against fixtures and scores their outputs."""
 
 import json
+import uuid
 from types import SimpleNamespace
 from app.analyzers.registry import ANALYZERS
 from app.evals.scoring import EvalScore
-from app.evals.fixtures import FIXTURES
+from app.evals.fixtures import FIXTURES, ASK_FIXTURES
 
 
 def _find_analyzer(name: str):
@@ -60,7 +61,13 @@ def _check_expected(actual_dict: dict, expected: dict) -> tuple[list[str], list[
         if key == "penalties_contains":
             actual_pen = _flatten_list(actual_dict.get("penalties", [])).lower()
             for phrase in exp_val:
-                if phrase.lower() not in actual_pen:
+                # phrase may be a list meaning "any one of these"
+                if isinstance(phrase, list):
+                    if not any(p.lower() in actual_pen for p in phrase):
+                        critical.append(
+                            f"penalties: expected one of {phrase!r} not found (actual: {actual_pen!r})"
+                        )
+                elif phrase.lower() not in actual_pen:
                     critical.append(f"penalties: expected phrase '{phrase}' not found (actual: {actual_pen!r})")
             continue
 
@@ -84,6 +91,23 @@ def _check_expected(actual_dict: dict, expected: dict) -> tuple[list[str], list[
             urgency = actual_dict.get("urgency", "unknown")
             if urgency == "unknown":
                 minor.append(f"urgency: expected a specific value, got 'unknown'")
+            continue
+
+        if key == "reply_body_contains_any":
+            body = actual_dict.get("reply_body", "") or ""
+            if not any(word.lower() in body.lower() for word in exp_val):
+                critical.append(
+                    f"reply_body: expected at least one of {exp_val!r} but found none "
+                    f"(body[:100]: {body[:100]!r})"
+                )
+            continue
+
+        if key == "human_review_required":
+            actual_hrr = actual_dict.get("human_review_required")
+            if actual_hrr is not True:
+                critical.append(
+                    f"human_review_required: expected True, got {actual_hrr!r}"
+                )
             continue
 
         # Direct value comparison
@@ -140,10 +164,13 @@ def evaluate(fixture_id: str, analyzer_name: str) -> EvalScore | None:
             critical_errors=[f"Analyzer '{analyzer_name}' not found in registry"],
         )
 
-    # Build a minimal document object the analyzer can consume
+    # Build a minimal document object the analyzer can consume.
+    # id is provided so analyzers that need document.id (e.g. DraftReplyGenerator) don't error.
     doc = SimpleNamespace(
+        id=uuid.uuid4(),
         raw_text=fixture["input_text"],
         type=fixture["doc_type"],
+        filename=f"eval_{fixture_id}.txt",
     )
 
     if fixture["doc_type"] not in analyzer.applies_to:
@@ -183,6 +210,120 @@ def evaluate(fixture_id: str, analyzer_name: str) -> EvalScore | None:
         minor_errors=minor,
         hallucinations=hallucinations,
     )
+
+
+def evaluate_ask(fixture_id: str) -> EvalScore:
+    """Run an Ask My Company fixture against the live RAG pipeline (requires DB)."""
+    fixture = ASK_FIXTURES.get(fixture_id)
+    if not fixture:
+        return EvalScore(
+            test_case=fixture_id,
+            analyzer_name="ask_company",
+            prompt_version="v1",
+            score=0,
+            passed=False,
+            critical_errors=[f"Ask fixture '{fixture_id}' not found"],
+        )
+
+    try:
+        from app.db.session import SessionLocal
+        from app.services.ask import answer_question
+    except Exception as e:
+        return EvalScore(
+            test_case=fixture_id,
+            analyzer_name="ask_company",
+            prompt_version="v1",
+            score=0,
+            passed=False,
+            critical_errors=[f"Import error (DB not available?): {e}"],
+        )
+
+    db = SessionLocal()
+    try:
+        answer = answer_question(fixture["query"], db)
+    except Exception as e:
+        return EvalScore(
+            test_case=fixture_id,
+            analyzer_name="ask_company",
+            prompt_version="v1",
+            score=0,
+            passed=False,
+            critical_errors=[f"answer_question failed: {e}"],
+        )
+    finally:
+        db.close()
+
+    critical = []
+    minor = []
+    no_docs_expected: bool = fixture.get("no_docs_expected", False)
+    expected_sources: set = fixture.get("expected_source_filenames", set())
+    expected_keywords: list = fixture.get("expected_keywords", [])
+
+    answer_text = answer.answer or ""
+    actual_sources = set(answer.source_documents or [])
+
+    # Source citation scoring
+    if no_docs_expected:
+        if actual_sources:
+            minor.append(f"expected no source documents but got {actual_sources!r}")
+        if not any(kw.lower() in answer_text.lower() for kw in expected_keywords):
+            critical.append(
+                f"'not found' response expected — none of {expected_keywords!r} found in answer"
+            )
+        source_score = 1.0 if not actual_sources else 0.5
+        keyword_score = 1.0 if any(kw.lower() in answer_text.lower() for kw in expected_keywords) else 0.0
+    else:
+        if expected_sources:
+            found = expected_sources & actual_sources
+            source_score = len(found) / len(expected_sources)
+            if source_score < 0.8:
+                critical.append(
+                    f"source citation: {found!r} found of {expected_sources!r} "
+                    f"({source_score:.0%} < 80%)"
+                )
+        else:
+            source_score = 1.0
+
+        if expected_keywords:
+            found_kws = [kw for kw in expected_keywords if kw.lower() in answer_text.lower()]
+            keyword_score = len(found_kws) / len(expected_keywords)
+            if keyword_score < 0.7:
+                missing_kws = [kw for kw in expected_keywords if kw not in found_kws]
+                minor.append(
+                    f"keyword presence: {keyword_score:.0%} < 70% — missing: {missing_kws!r}"
+                )
+        else:
+            keyword_score = 1.0
+
+    combined = (source_score * 0.5 + keyword_score * 0.5)
+    score = max(0, min(10, round(combined * 10)))
+    score -= len(critical) * 2
+    score = max(0, score)
+    passed = (
+        score >= 7
+        and len(critical) == 0
+        and (no_docs_expected or source_score >= 0.8)
+        and keyword_score >= 0.7
+    )
+
+    return EvalScore(
+        test_case=fixture_id,
+        analyzer_name="ask_company",
+        prompt_version="v1",
+        score=score,
+        passed=passed,
+        critical_errors=critical,
+        minor_errors=minor,
+    )
+
+
+def run_all_ask(fixture_filter: str | None = None) -> list[EvalScore]:
+    results = []
+    for fixture_id in ASK_FIXTURES:
+        if fixture_filter and fixture_id != fixture_filter:
+            continue
+        results.append(evaluate_ask(fixture_id))
+    return results
 
 
 def run_all(

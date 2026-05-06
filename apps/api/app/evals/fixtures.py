@@ -144,7 +144,7 @@ Oricare parte poate denunța contractul cu notificare scrisă transmisă cu 30 d
         "expected": {
             "contract_reviewer": {
                 "payment_terms_contains": ["14"],
-                "penalties_contains": ["0.05", "10"],
+                "penalties_contains": [["0,05", "0.05"], "10"],
                 "termination_terms_nonempty": True,
                 "risk_flags_nonempty": True,
             },
@@ -157,5 +157,78 @@ Oricare parte poate denunța contractul cu notificare scrisă transmisă cu 30 d
                 "language": "ro",
             },
         },
+    },
+}
+
+# ── Draft Reply fixture ───────────────────────────────────────────────────────
+# Evaluated via draft_reply_generator analyzer (requires DB / pgvector).
+
+FIXTURES["client_apartament_draft"] = {
+    "input_text": """\
+Subiect: Cerere ofertă amenajare apartament 3 camere
+
+Bună ziua,
+
+Am găsit portofoliul Atelier Nova și am dori o ofertă pentru amenajarea unui apartament de 3 camere în București, aproximativ 78 mp.
+
+Ne interesează:
+- consultanță design interior
+- propunere cromatică
+- recomandări mobilier
+- eventual coordonare furnizori
+
+Am vrea să începem în luna iunie. Ne puteți spune ce informații aveți nevoie și care este un cost estimativ?
+
+Mulțumesc,
+Radu Enache""",
+    "doc_type": "client_request",
+    "expected": {
+        "draft_reply_generator": {
+            "detected_language": "ro",
+            "reply_body_contains_any": ["plan", "fotograf", "buget", "stil", "început", "detalii", "informații"],
+            "human_review_required": True,
+        }
+    },
+}
+
+# ── Ask My Company fixtures ───────────────────────────────────────────────────
+# Evaluated via answer_question() service (requires DB / pgvector).
+# Each fixture: query · expected_keywords (any-match) · expected_source_filenames
+#               (set of basenames that must appear in source_documents) ·
+#               no_docs_expected (True → answer should say "not found" + sources empty)
+
+ASK_FIXTURES: dict[str, dict] = {
+    "ask_invoices_urgent": {
+        "query": "Which invoices are urgent this week?",
+        "expected_keywords": ["invoice", "factur", "urgent", "scadent", "due", "RON"],
+        "expected_source_filenames": {
+            "invoice_lumina_design_2026_0041.txt",
+            "invoice_mobila_artisan_2026_0187.txt",
+        },
+        "no_docs_expected": False,
+    },
+    "ask_accountant_docs": {
+        "query": "What documents did the accountant request?",
+        "expected_keywords": ["accountant", "contabil", "document", "Lumina", "PrintStudio", "SoftCloud"],
+        "expected_source_filenames": {"email_accountant_missing_docs_april.txt"},
+        "no_docs_expected": False,
+    },
+    "ask_payment_terms": {
+        "query": "What are the payment terms with Lumina Design?",
+        "expected_keywords": ["14", "zile", "days", "payment", "plat"],
+        "expected_source_filenames": {"contract_supplier_lumina_design.txt"},
+        "no_docs_expected": False,
+    },
+    "ask_accountant_deadline": {
+        "query": "What should I send to the accountant before 10 May?",
+        "expected_keywords": ["mai", "May", "10", "factur", "invoice", "confirmar"],
+        "expected_source_filenames": {"email_accountant_missing_docs_april.txt"},
+        "no_docs_expected": False,
+    },
+    "ask_no_context": {
+        "query": "What did we agree about Antarctica?",
+        "expected_keywords": ["not found", "nu", "găsit", "negăsit"],
+        "expected_source_filenames": set(),
+        "no_docs_expected": True,
     },
 }

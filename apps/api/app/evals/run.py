@@ -4,6 +4,8 @@ Usage:
     uv run python -m app.evals.run
     uv run python -m app.evals.run --analyzer invoice_extractor
     uv run python -m app.evals.run --fixture invoice_lumina
+    uv run python -m app.evals.run --ask              # Ask My Company fixtures (requires DB)
+    uv run python -m app.evals.run --ask --fixture ask_payment_terms
 """
 
 import argparse
@@ -12,7 +14,7 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-from app.evals.runner import run_all
+from app.evals.runner import run_all, run_all_ask
 from app.evals.scoring import EvalScore
 
 RESULTS_DIR = Path(__file__).parent.parent.parent / "tests" / "evals" / "results"
@@ -32,10 +34,19 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="BCA Eval Harness")
     parser.add_argument("--analyzer", help="Only evaluate this analyzer")
     parser.add_argument("--fixture", help="Only evaluate this fixture")
+    parser.add_argument(
+        "--ask",
+        action="store_true",
+        help="Run Ask My Company fixtures instead (requires live DB + pgvector)",
+    )
     args = parser.parse_args()
 
-    print("Running eval harness…")
-    scores = run_all(analyzer_filter=args.analyzer, fixture_filter=args.fixture)
+    if args.ask:
+        print("Running Ask My Company eval fixtures (requires DB)…")
+        scores = run_all_ask(fixture_filter=args.fixture)
+    else:
+        print("Running eval harness…")
+        scores = run_all(analyzer_filter=args.analyzer, fixture_filter=args.fixture)
 
     if not scores:
         print("No evals matched the given filters.")
