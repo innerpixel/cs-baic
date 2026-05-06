@@ -357,4 +357,116 @@ topology  defined → in-progress → shipped
                                eval result 9/10 pass · 1 intentional fail (invoice_extractor
                                PO-reference miss — harness correctly catches it) ·
                                rate-limit 429s are transient infrastructure · state→stable
+2026-05-05  coordinator(opus)            live verification revealed 2 schema/LLM mismatches on
+                               production-seeded data:
+                               A) Summary.amounts rejects None elements — accountant email
+                                  summarizer FAILED with pydantic error
+                               B) ContractReview.parties/payment_terms reject dicts — lumina
+                                  contract reviewer FAILED 7 validation errors · LLM returned
+                                  RICHER structure (name/role objects) than the schema accepted
+                               C) commit 0970fbb "relax fixture language checks" warrants
+                                  audit — fixture rigor may have been weakened to make eval pass
+                               framework abstraction confirmed sound (zero pipeline edits) ·
+                               §Hotfix section added with builder prompt · slice-5 gated until
+                               hotfix verifies clean
+2026-05-06  builder(claude-sonnet-4-6)  hotfix shipped · finding A confirmed fixed (amounts=[] not
+                               [None]) · finding B properly fixed: contract.py changed to
+                               list[str|dict[str,Any]] preserving LLM structure (prior fix coerced
+                               dicts→str, losing data) · additional root-cause found and fixed:
+                               merge.py _dedup_list used set() which crashes on unhashable dicts
+                               — this was silently killing all contract background tasks (stuck
+                               "queued" forever) · finding C: three fixture relaxations in 0970fbb
+                               restored (accountant_email short_summary_contains, apartament_email
+                               short_summary_contains, contract penalties) + decimal variant
+                               corrected ("0,05" removed; LLM normalises to "0.05") ·
+                               eval result: 9/10 pass · 1 intentional fail (PO-ref catcher) ·
+                               contract_reviewer now 10/10 (was broken entirely before hotfix) ·
+                               seed timeout extended 90→180s · state stays stable
+```
+
+---
+
+## Hotfix · slice-4.1 (live verification revealed two schema/LLM mismatches)
+
+```
+finding A   accountant email: Summary.amounts schema rejects None elements
+            LLM returns list[None] for docs with no monetary mentions
+
+finding B   lumina contract: ContractReview.parties/payment_terms schema rejects dicts
+            LLM returns rich {name, role} / {description, ...} objects · schema declared list[str]
+            this is INFORMATION LOSS being prevented by the schema — fix by relaxing types,
+            not by forcing the LLM down to strings
+
+finding C   eval commit "0970fbb fix ContractReview+Summary coercers · relax fixture
+            language checks" should be audited — relaxing fixture checks defeats the harness
+            purpose; if checks were trimmed to make them pass, restore them
+
+scope IN    schema relaxation · reseed · verify · audit eval fixture relaxation
+scope OUT   any new analyzers · UI changes · feature work
+```
+
+### Hotfix builder prompt
+
+Copy into a fresh Sonnet session at the repo root:
+
+```text
+Read CLAUDE.md and ops/slice-4.classifier-summary-pdf-eval.hybrid §Hotfix.
+
+You are the builder for slice-4 hotfix. Coordinator (opus) verified the live pipeline; production data exposed two schema gaps that the analyzer pattern caught honestly (audit events written, no silent failures), but extraction is incomplete.
+
+Three findings, three fixes:
+
+A. apps/api/app/schemas/summary.py — Summary.amounts (and any analogous list[str] fields like deadlines, obligations, key_points, missing_information) reject None elements. The LLM correctly returns [None] when no values exist.
+
+B. apps/api/app/schemas/contract.py — ContractReview.parties, payment_terms, obligations, termination_terms, penalties (and similar list fields) declared as list[str] but the LLM returns list of dicts ({name, role} for parties; {description, ...} for payment_terms). The dict shape is RICHER and we should preserve it, not coerce down.
+
+C. Audit commit 0970fbb. Inspect apps/api/app/evals/fixtures.py and apps/api/app/evals/runner.py. If language-check relaxations weakened the fixtures (dropped expected language assertions, lowered score thresholds, removed expected fields), restore them. Eval discipline only works if it stays honest.
+
+Tasks (commit per checkpoint):
+
+1. SUMMARY SCHEMA RELAXATION.
+   In apps/api/app/schemas/summary.py:
+   - For list-of-string fields (amounts, deadlines, obligations, key_points, missing_information): keep type list[str] but add a field_validator(mode="before") that drops None elements before validation.
+   - Mental tests: input [None] → []; input ["3000 RON", None, "VAT 19%"] → ["3000 RON", "VAT 19%"]; input None → [].
+   Commit: "slice-4-hotfix(summary): drop None elements from list fields"
+
+2. CONTRACTREVIEW SCHEMA RELAXATION.
+   In apps/api/app/schemas/contract.py:
+   - For parties, payment_terms, obligations, termination_terms, penalties, important_dates, risk_flags, questions_for_human_review: change type from list[str] to list[str | dict[str, Any]]. Accept either shape; preserve LLM structure.
+   - Add a field_validator(mode="before") that drops None elements.
+   - Do NOT introduce sub-Pydantic-models (Party, PaymentTerm) yet — slice-N when the UI knows what to do with structured data. For slice-4 we just preserve what the LLM returned.
+   - Frontend already renders these as JSON in analyzer_outputs.contract_reviewer so flexible shape is fine.
+   Commit: "slice-4-hotfix(contract): accept str|dict in list fields · preserve LLM structure"
+
+3. EVAL FIXTURE AUDIT.
+   - git show 0970fbb to see what was changed.
+   - For each language-check relaxation: was expected language assertion removed (e.g., expected "ro" was dropped)? If yes, restore it.
+   - For other relaxations: judgement — if the fixture's expected output was watered down to match a buggy LLM response, restore the original expectation. Fixtures are ground truth; if the LLM doesn't meet them, eval should fail.
+   - If a relaxation was correct (e.g., a typo in the original fixture), document the reasoning in patchlog and keep it.
+   Commit: "slice-4-hotfix(evals): restore fixture rigor (or document why relaxation was correct)"
+
+4. WIPE + RESEED.
+   - cd apps/api && uv run alembic downgrade base && uv run alembic upgrade head
+   - uv run python scripts/seed_demo.py (or whatever the slice-4 builder named it)
+   - All 7 docs should land status="done".
+
+5. VERIFY.
+   - curl http://localhost:8000/api/documents | jq '.[] | {filename, status}' → all 7 "done"
+   - Accountant email: analysis.summary populated · analyzer_outputs.summarizer.amounts == [] (not [None]).
+   - Contract: analyzer_outputs.contract_reviewer with parties as list of dicts (preserving name/role), payment_terms as list of dicts (preserving description), etc.
+   - Run eval harness: uv run python -m app.evals.run
+   - Capture: pass count, fail count, which fixtures fail. The PO-ref intentional fail should still fail (it's the regression-catcher); other failures should be zero post-hotfix.
+
+6. SHIP.
+   - Append ONE PATCHLOG line to ops/slice-4.classifier-summary-pdf-eval.hybrid (timestamp · model · summary · eval pass-rate).
+   - State stays "stable" (this is patchlog work, not state regression).
+   - Append ONE PATCHLOG line to ops/project.state.hybrid · only after verification clean, update §Now (current → slice-5).
+   - Final commit: "slice-4-hotfix: schemas relaxed for str|dict · live verification of contract+summarizer clean"
+
+Hard rules:
+- never call provider SDK outside app/services/llm.py
+- inline prompt version line on every runtime prompt
+- no Send button anywhere · ever
+- if eval audit (task 3) reveals the relaxation was a real bug-paper-over you can't fix in this hotfix: STOP and report; don't patch the fixture to hide the issue
+- if verification (task 5) shows ANY hallucinated value (a CUI or amount or party name not in source text): STOP and report. Do not ship until extraction is clean AND informationally rich.
 ```
