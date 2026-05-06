@@ -1,46 +1,61 @@
 <script lang="ts">
-	import { matchQuestion, EXAMPLE_QUESTIONS, type QAResult } from '$lib/data/qa.js';
+	import { EXAMPLE_QUESTIONS } from '$lib/data/qa.js';
+	import { askQuestion, type AskAnswer } from '$lib/api/ask.js';
 
 	interface Message {
 		role: 'user' | 'assistant';
 		text: string;
 		sources?: string[];
-		fallback?: boolean;
+		loading?: boolean;
+		error?: boolean;
 	}
 
 	let messages = $state<Message[]>([]);
 	let inputValue = $state('');
 	let listEl = $state<HTMLElement | null>(null);
+	let isLoading = $state(false);
 
 	function scrollToBottom() {
 		if (listEl) listEl.scrollTop = listEl.scrollHeight;
 	}
 
-	function submit() {
+	async function submit() {
 		const q = inputValue.trim();
-		if (!q) return;
+		if (!q || isLoading) return;
 		inputValue = '';
 
 		messages = [...messages, { role: 'user', text: q }];
+		isLoading = true;
 
-		const result: QAResult | null = matchQuestion(q);
-		if (result) {
+		// Placeholder while waiting
+		messages = [...messages, { role: 'assistant', text: '', loading: true }];
+		setTimeout(scrollToBottom, 0);
+
+		try {
+			const result: AskAnswer = await askQuestion(q);
+
+			// Replace placeholder with real answer
 			messages = [
-				...messages,
-				{ role: 'assistant', text: result.answer, sources: result.sources }
-			];
-		} else {
-			messages = [
-				...messages,
+				...messages.slice(0, -1),
 				{
 					role: 'assistant',
-					text: 'Information not found in your documents.',
-					fallback: true
+					text: result.answer,
+					sources: result.source_documents.filter((s) => typeof s === 'string') as string[]
 				}
 			];
+		} catch (err) {
+			messages = [
+				...messages.slice(0, -1),
+				{
+					role: 'assistant',
+					text: 'Could not reach the API. Make sure the server is running.',
+					error: true
+				}
+			];
+		} finally {
+			isLoading = false;
+			setTimeout(scrollToBottom, 0);
 		}
-
-		setTimeout(scrollToBottom, 0);
 	}
 
 	function useExample(q: string) {
@@ -85,7 +100,8 @@
 			{#each EXAMPLE_QUESTIONS as q}
 				<button
 					onclick={() => useExample(q)}
-					style="text-align: left; background: var(--color-main); border: 1px solid var(--color-stroke); border-radius: 5px; padding: 8px 11px; font-size: 12px; color: var(--color-text-muted); cursor: pointer; line-height: 1.4; transition: border-color 0.15s;"
+					disabled={isLoading}
+					style="text-align: left; background: var(--color-main); border: 1px solid var(--color-stroke); border-radius: 5px; padding: 8px 11px; font-size: 12px; color: var(--color-text-muted); cursor: pointer; line-height: 1.4; transition: border-color 0.15s; opacity: {isLoading ? '0.5' : '1'};"
 				>
 					{q}
 				</button>
@@ -110,13 +126,12 @@
 		style="flex: 1; overflow-y: auto; padding: 24px 28px; display: flex; flex-direction: column; gap: 16px;"
 	>
 		{#if messages.length === 0}
-			<div
-				style="margin: auto; text-align: center; max-width: 400px; padding: 40px 0;"
-			>
+			<div style="margin: auto; text-align: center; max-width: 400px; padding: 40px 0;">
 				<div
 					style="font-size: 14px; color: var(--color-text-muted); line-height: 1.7; margin-bottom: 10px;"
 				>
-					Ask a question about your documents.<br />Only information from your uploaded files will be used.
+					Ask a question about your documents.<br />Only information from your uploaded files will be
+					used.
 				</div>
 				<div style="font-size: 12px; color: var(--color-stroke);">
 					Try an example question from the sidebar.
@@ -137,15 +152,14 @@
 				<div style="display: flex; justify-content: flex-start;">
 					<div style="max-width: 85%;">
 						<div
-							style="background: var(--color-main); border: 1px solid var(--color-stroke); border-radius: 2px 8px 8px 8px; padding: 14px 18px; font-size: 14px; color: var(--color-text); line-height: 1.65;"
+							style="background: var(--color-main); border: 1px solid {msg.error ? 'var(--color-risk)' : 'var(--color-stroke)'}; border-radius: 2px 8px 8px 8px; padding: 14px 18px; font-size: 14px; color: var(--color-text); line-height: 1.65;"
 						>
-							{#if msg.fallback}
-								<div>
-									<span style="color: var(--color-text-muted);">Information not found in your documents.</span>
-								</div>
-								<div style="margin-top: 10px; font-size: 12px; color: var(--color-stroke);">
-									Try one of the 8 example questions, or upload more documents to expand what can be answered.
-								</div>
+							{#if msg.loading}
+								<span style="color: var(--color-text-muted); animation: pulse 1.2s ease-in-out infinite;"
+									>Searching your documents…</span
+								>
+							{:else if msg.error}
+								<span style="color: var(--color-text-muted);">{msg.text}</span>
 							{:else}
 								{@html msg.text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')}
 							{/if}
@@ -176,15 +190,17 @@
 		<textarea
 			bind:value={inputValue}
 			onkeydown={handleKeydown}
+			disabled={isLoading}
 			rows={2}
 			placeholder="Ask a question about your documents…"
-			style="flex: 1; background: var(--color-main); border: 1px solid var(--color-stroke); border-radius: 6px; padding: 10px 14px; font-size: 14px; color: var(--color-text); resize: none; font-family: inherit; line-height: 1.5; outline: none;"
+			style="flex: 1; background: var(--color-main); border: 1px solid var(--color-stroke); border-radius: 6px; padding: 10px 14px; font-size: 14px; color: var(--color-text); resize: none; font-family: inherit; line-height: 1.5; outline: none; opacity: {isLoading ? '0.7' : '1'};"
 		></textarea>
 		<button
 			onclick={submit}
-			style="background: var(--color-action); border: 1px solid var(--color-stroke-light); color: var(--color-text); padding: 10px 18px; border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; flex-shrink: 0;"
+			disabled={isLoading}
+			style="background: var(--color-action); border: 1px solid var(--color-stroke-light); color: var(--color-text); padding: 10px 18px; border-radius: 6px; font-size: 13px; font-weight: 500; cursor: {isLoading ? 'not-allowed' : 'pointer'}; flex-shrink: 0; opacity: {isLoading ? '0.6' : '1'};"
 		>
-			Ask
+			{isLoading ? '…' : 'Ask'}
 		</button>
 	</div>
 </main>

@@ -3,6 +3,7 @@
 	import { api, type ApiDocumentDetail, type ApiDocumentItem } from '$lib/api/client.js';
 	import ClassifierBadge from '$lib/components/ClassifierBadge.svelte';
 	import ContractTermsPanel from '$lib/components/ContractTermsPanel.svelte';
+	import DraftReplyPanel from '$lib/components/DraftReplyPanel.svelte';
 
 	// ── State ────────────────────────────────────────────────────────────────
 
@@ -401,6 +402,11 @@
 					docType={selected.type}
 					analyzerOutputs={selected.analysis.analyzer_outputs}
 				/>
+			{/if}
+
+			<!-- Draft Reply Panel (client_request only) -->
+			{#if selected.type === 'client_request' && selected.analysis}
+				<DraftReplyPanel analyzerOutputs={selected.analysis.analyzer_outputs} />
 			{/if}
 		{:else if selected.status === 'done'}
 			<section style="background: var(--color-main); border: 1px solid var(--color-stroke); border-radius: 8px; padding: 18px 20px; margin-bottom: 16px;">
