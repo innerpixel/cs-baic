@@ -16,11 +16,14 @@
 	let detailLoading = $state(false);
 
 	// upload form
+	let uploadFile = $state<File | null>(null);
+	let dragOver = $state(false);
+	let pasteFallbackOpen = $state(false);
 	let uploadText = $state('');
 	let uploadFilename = $state('');
-	let uploadType = $state('supplier_invoice');
 	let uploading = $state(false);
 	let uploadError = $state<string | null>(null);
+	let fileInputEl = $state<HTMLInputElement | null>(null);
 
 	// local approval overlay (mirrors API state, refreshed on re-fetch)
 	let localApproved = $state<Set<string>>(new Set());
@@ -121,29 +124,58 @@
 
 	// ── Actions ───────────────────────────────────────────────────────────────
 
+	function onDragOver(e: DragEvent) {
+		e.preventDefault();
+		dragOver = true;
+	}
+
+	function onDragLeave() {
+		dragOver = false;
+	}
+
+	function onDrop(e: DragEvent) {
+		e.preventDefault();
+		dragOver = false;
+		const file = e.dataTransfer?.files?.[0];
+		if (file) uploadFile = file;
+	}
+
+	function onFileChange(e: Event) {
+		const input = e.target as HTMLInputElement;
+		uploadFile = input.files?.[0] ?? null;
+	}
+
 	async function handleUpload(e: Event) {
 		e.preventDefault();
-		if (!uploadText.trim() || !uploadFilename.trim()) return;
+		const canSubmit = uploadFile != null || (pasteFallbackOpen && uploadText.trim());
+		if (!canSubmit) return;
 		uploading = true;
 		uploadError = null;
 		try {
-			const result = await api.uploadDocument(uploadText, uploadFilename, uploadType);
+			const input = uploadFile
+				? { file: uploadFile }
+				: { text: uploadText, filename: uploadFilename.trim() || `pasted_${Date.now()}.txt` };
+			const result = await api.uploadDocument(input);
+
+			const displayName = uploadFile ? uploadFile.name : (uploadFilename.trim() || 'pasted.txt');
+			uploadFile = null;
 			uploadText = '';
 			uploadFilename = '';
-			// optimistic: add a placeholder doc to the list
+			pasteFallbackOpen = false;
+			if (fileInputEl) fileInputEl.value = '';
+
 			docs = [
 				{
 					id: result.id,
-					filename: uploadFilename || 'document.txt',
-					type: uploadType,
-					status: 'queued',
+					filename: displayName,
+					type: 'unknown',
+					status: result.status === 'not_supported_yet' ? 'not_supported_yet' : 'queued',
 					created_at: new Date().toISOString()
 				},
 				...docs
 			];
 			await selectDoc(result.id);
-			// poll until done
-			pollDoc(result.id);
+			if (result.status !== 'not_supported_yet') pollDoc(result.id);
 		} catch (e) {
 			uploadError = String(e);
 		} finally {
@@ -204,34 +236,75 @@
 			Upload Document
 		</div>
 		<form onsubmit={handleUpload} style="display: flex; flex-direction: column; gap: 8px;">
-			<textarea
-				bind:value={uploadText}
-				placeholder="Paste document text here…"
-				rows={4}
-				style="width: 100%; background: var(--color-main); border: 1px solid var(--color-stroke); border-radius: 4px; padding: 8px; font-size: 12px; color: var(--color-text); font-family: inherit; resize: vertical; box-sizing: border-box; outline: none;"
-			></textarea>
+
+			<!-- Drop zone -->
 			<input
-				bind:value={uploadFilename}
-				placeholder="filename.txt"
-				style="background: var(--color-main); border: 1px solid var(--color-stroke); border-radius: 4px; padding: 7px 8px; font-size: 12px; color: var(--color-text); outline: none; font-family: monospace;"
+				bind:this={fileInputEl}
+				type="file"
+				accept=".pdf,.txt,application/pdf,text/plain"
+				onchange={onFileChange}
+				style="display: none;"
 			/>
-			<select
-				bind:value={uploadType}
-				style="background: var(--color-main); border: 1px solid var(--color-stroke); border-radius: 4px; padding: 7px 8px; font-size: 12px; color: var(--color-text); outline: none;"
+			<!-- svelte-ignore a11y_no_static_element_interactions -->
+			<div
+				role="button"
+				tabindex="0"
+				onclick={() => fileInputEl?.click()}
+				ondragover={onDragOver}
+				ondragleave={onDragLeave}
+				ondrop={onDrop}
+				onkeydown={(e) => e.key === 'Enter' && fileInputEl?.click()}
+				style="border: 2px dashed {dragOver ? 'var(--color-stroke-light)' : 'var(--color-stroke)'}; border-radius: 6px; padding: 20px 12px; text-align: center; cursor: pointer; background: {dragOver ? 'var(--color-action)' : 'transparent'}; transition: background 0.15s, border-color 0.15s;"
 			>
-				{#each DOC_TYPES as dt}
-					<option value={dt.value}>{dt.label}</option>
-				{/each}
-			</select>
+				{#if uploadFile}
+					<div style="font-size: 12px; color: var(--color-text); line-height: 1.5;">
+						{uploadFile.name}<br />
+						<span style="color: var(--color-text-muted);">{(uploadFile.size / 1024).toFixed(0)} KB</span>
+					</div>
+				{:else}
+					<div style="font-size: 12px; color: var(--color-text-muted); line-height: 1.6;">
+						Drop a PDF or text file<br />
+						<span style="font-size: 11px;">or click to browse</span>
+					</div>
+				{/if}
+			</div>
+
+			<!-- Paste fallback -->
+			<button
+				type="button"
+				onclick={() => (pasteFallbackOpen = !pasteFallbackOpen)}
+				style="background: none; border: none; padding: 0; font-size: 11px; color: var(--color-text-muted); cursor: pointer; text-align: left; text-decoration: underline;"
+			>
+				{pasteFallbackOpen ? 'Hide paste option' : 'Or paste text…'}
+			</button>
+			{#if pasteFallbackOpen}
+				<textarea
+					bind:value={uploadText}
+					placeholder="Paste document text here…"
+					rows={4}
+					style="width: 100%; background: var(--color-main); border: 1px solid var(--color-stroke); border-radius: 4px; padding: 8px; font-size: 12px; color: var(--color-text); font-family: inherit; resize: vertical; box-sizing: border-box; outline: none;"
+				></textarea>
+				<input
+					bind:value={uploadFilename}
+					placeholder="filename.txt (optional)"
+					style="background: var(--color-main); border: 1px solid var(--color-stroke); border-radius: 4px; padding: 7px 8px; font-size: 12px; color: var(--color-text); outline: none; font-family: monospace;"
+				/>
+			{/if}
+
 			<button
 				type="submit"
-				disabled={uploading || !uploadText.trim() || !uploadFilename.trim()}
+				disabled={uploading || (!uploadFile && !(pasteFallbackOpen && uploadText.trim()))}
 				style="background: var(--color-action); color: var(--color-text); border: 1px solid var(--color-stroke-light); padding: 8px; border-radius: 4px; font-size: 12px; cursor: pointer; font-weight: 500; opacity: {uploading ? 0.6 : 1};"
 			>
 				{uploading ? 'Uploading…' : 'Submit'}
 			</button>
+
 			{#if uploadError}
-				<div style="font-size: 11px; color: var(--color-urgency-high);">{uploadError}</div>
+				<div style="font-size: 11px; color: var(--color-urgency-high); line-height: 1.4;">
+					{uploadError.includes('not_supported_yet')
+						? 'Could not extract text — likely an image-only PDF.'
+						: uploadError}
+				</div>
 			{/if}
 		</form>
 	</div>
