@@ -16,10 +16,12 @@ density: L2.5
 ## Now
 
 ```
-phase      1
-current    slice-5.rag-ask-draft  (stable pending pgvector acceptance pass)
-next       —
-blocked    BLOCKER: pgvector image not yet switched · user must: cd infra && docker compose down && docker compose up -d postgres && uv run alembic upgrade head && uv run python scripts/seed_demo.py
+phase      1 · MVP demo loop complete · DOGFOOD MODE
+current    dogfood · open scope · user uses the demo · field notes accumulate in §Field notes
+            small fixes dispatched as targeted builder tasks (1-3 commits each)
+            structural finds become slice-7+ items · don't pre-plan
+next       slice-6.deploy · VPS deployment · refined when dogfood is winding down
+blocked    —
 ```
 
 ---
@@ -47,7 +49,8 @@ slice-1  homepage + inbox mock                       stable     gravity HIGH
 slice-2  demo-data + ask + reply mocks               stable     gravity HIGH
 slice-3  monorepo + fastapi + invoice extractor e2e  stable          5/5 invoices extracted clean
 slice-4  classifier + summary + PDF + eval harness   stable     9/10 eval · contract_reviewer 10/10 · dict preservation verified
-slice-5  RAG (pgvector) + Ask live + Draft live          stable*    gravity HIGH · OCR deferred (pilot demand) · *acceptance pass pending pgvector image switch
+slice-5  RAG (pgvector) + Ask live + Draft live          stable     8 docs · 33 chunks · grounded ask + Romanian draft + honest "not found" verified live · OCR deferred
+slice-6  VPS deployment (docker compose · nginx · HTTPS)  seed       refine when dogfood is winding down · open questions: hosting · domain · prod LLM key
 ```
 
 ---
@@ -70,7 +73,25 @@ slice-5  RAG (pgvector) + Ask live + Draft live          stable*    gravity HIGH
 ## Decisions waiting on user
 
 ```
-—
+deferred until dogfood is winding down (needed to refine slice-6.deploy):
+  - hosting        VPS provider (Hetzner / OVH / DigitalOcean / CSMCL infra) · EU region
+  - domain         subdomain of csmcl.space OR separate name (.ai / .ro / .com)
+  - LLM in prod    same Mistral key as dev OR separate prod key · rate-limit/cost budget
+  - postgres       on-VPS (simpler) OR managed (more reliable)
+  - backups        pg_dump → S3-compatible object storage cadence
+```
+
+## Field notes (dogfood log · append-only)
+
+```
+format:  <date>  <area>  <observation>  →  <action: just-fix | small-task | slice-N>
+
+  empty · add entries as you find things while using the demo
+  examples of what to log:
+    UX friction (label unclear · loading slow · empty state confusing)
+    AI quality drift (answer wrong · source citation odd · draft tone off)
+    bugs (error after action X · status stuck · UI shows stale data)
+    surprises good or bad ("this is better than I expected" matters too)
 ```
 
 ## Questions waiting on coordinator
@@ -98,6 +119,24 @@ branch   main
 - hosting for early demo: Vercel preview vs local-only
 - inline prompt versioning embedded into runtime prompts  (defer to slice-3)
 - final public name: revisit after 2-3 SME pilot conversations
+
+- analyzer return type contract               slice-5 found DocumentIndexer returns dict not Pydantic ·
+                                              fixed with hasattr guard in analysis.py · works but inconsistent ·
+                                              future cleanup: standardize on Pydantic OR formalize "either is OK"
+
+- strip_json_fences only in 2 call sites      slice-5 added strip_json_fences() to llm.py but applied only
+                                              in ask.py + draft_reply_generator.py · classifier/summarizer/
+                                              invoice_extractor/contract_reviewer don't use it · works today
+                                              because LLM doesn't fence those prompt shapes · fragile · audit
+                                              and apply universally as part of polish slice
+
+- gmail-style large inbox cleanup             user mused about a separate project for 15K-message personal
+                                              inbox · NOT a Business Companion AI feature · different shape
+                                              entirely (one user, one massive personal corpus) · parked
+
+- email forwarding ingestion (Pattern 1)      forwards@<workspace>.businesscompanion.ai webhook → ingest as docs ·
+                                              lowest trust ask · sidesteps SMTP infrastructure · candidate for
+                                              first pilot post-MVP · revisit after pilot conversations
 ```
 
 ---
@@ -123,6 +162,10 @@ branch   main
 2026-05-05  coordinator(opus)            live verification: framework abstraction confirmed sound (zero pipeline edits) · BUT 2 schema/LLM mismatches on production-seeded data: A) Summary.amounts rejects None (accountant email broken) B) ContractReview rejects dicts (LLM volunteered richer parties+payment_terms structure than schema permitted — contract review entirely missing for the lumina contract) C) commit 0970fbb relaxed fixture language checks — needs audit · slice-4 §Hotfix added with builder prompt · slice-5 gated
 2026-05-06  builder(claude-sonnet-4-6)  slice-4 hotfix shipped · contract.py→list[str|dict] preserves LLM structure · merge.py _dedup_list set()→list (unhashable dict bug was silently killing all contract analysis background tasks) · 3 fixture relaxations from 0970fbb restored · eval 9/10 (1 intentional PO-ref fail) · 7 docs seeded clean · current→slice-5
 2026-05-06  coordinator(opus)            verified slice-4 hotfix live: contract preserves rich structure (parties as [{name,role}] · payment_terms+penalties as [{description}]) · accountant email summary populated · amounts=[] (None correctly dropped) · slice-5 refined seed→forming with OCR REMOVED per user direction (defer until pilot demand) · pipeline hardening promoted to task 1 (lesson from _dedup_list silent crash) · DocumentIndexer + DraftReplyGenerator added as normal analyzers (no pipeline edits) · file: ops/slice-5.rag-ask-draft.hybrid
+2026-05-06  builder(claude-sonnet-4-6)  slice-5 shipped · pgvector + chunking + embeddings · DocumentIndexer + DraftReplyGenerator analyzers · /api/ask synchronous endpoint · pipeline hardening · 8 docs seeded · 33 chunks · 2 mid-build fixes: A) DocumentIndexer returns dict not Pydantic — analysis.py needed hasattr(model_dump) guard B) LLM wraps JSON in ```json fences — added strip_json_fences() in llm.py applied to ask + draft_reply_generator
+2026-05-06  coordinator(opus)            slice-5 verified live: 8 docs all done · 33 chunks · /api/ask grounded ("Lumina invoice missing" → 2 sources cited · confidence high) · /api/ask honest ("Antarctica" → no sources · "context does not contain") · Draft Reply for apartament email: Romanian text · human_review_required=true · 5 missing_information items · NO Send button · MVP demo loop complete · 2 framework findings recorded as OPEN EDGES (analyzer return type · strip_json_fences universal application)
+2026-05-06  user                         direction set: dogfood → solidify → deploy on VPS · pilot conversations come after deployment
+2026-05-06  coordinator(opus)            entered dogfood mode · open scope · §Field notes section added for append-only observation log · slice-6.deploy seeded · 5 deploy questions deferred until dogfood is winding down
 2026-05-06  builder(claude-sonnet-4-6)  slice-5 code complete · pipeline hardening (try/except + audit event) · pgvector schema + HNSW index + DocumentChunk model + alembic migration · chunk_paragraph + embed_batch services · DocumentIndexer + DraftReplyGenerator analyzers (normal protocol · no pipeline edits) · top_k retrieval (pgvector cosine <=> operator) · POST /api/ask live endpoint · /app/ask + /app/inbox DraftReplyPanel wired to live API · 8-doc seed (7→8 adds client_request) · eval harness extended: ask_questions (5 fixtures) + draft_reply (1 fixture) + OR-list penalty scoring · BLOCKER: infra still on postgres:16 without pgvector · user must switch image before acceptance pass
 
 ```

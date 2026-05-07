@@ -11,6 +11,7 @@ Rules:
 - Use empty lists [] when no items apply.
 - Return amounts as decimal strings (e.g., "500.00"); use null for missing values.
 - Flag clauses that are ambiguous or risky in questions_for_human_review.
+- All list items (parties, payment_terms, obligations, termination_terms, penalties, important_dates, risk_flags, questions_for_human_review) must be plain strings, not objects or nested JSON.
 
 Return valid JSON:
 
