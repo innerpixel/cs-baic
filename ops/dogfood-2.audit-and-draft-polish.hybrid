@@ -137,7 +137,7 @@ If a label feels awkward when you see it on screen, adjust the string in the map
 ## State
 
 ```
-state    forming
+state    stable
 ships    1–2 commits
 gravity  MEDIUM (audit cosmetics) + MEDIUM (accountant flow) · low risk
 ```
@@ -156,4 +156,5 @@ gravity  MEDIUM (audit cosmetics) + MEDIUM (accountant flow) · low risk
 
 ```
 2026-05-07  coordinator(opus)  codon written · seed→forming · 2-item bundle · 2 file edits · no schema · no analyzer protocol change
+2026-05-07  builder(claude-sonnet-4-6)  shipped · 2 commits · draft_reply_generator applies_to widened · eventLabel map + prefix humanizer · 0 type errors · state→stable
 ```
