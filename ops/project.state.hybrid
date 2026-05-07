@@ -93,9 +93,9 @@ format:  <date>  <area>  <observation>  →  <action: just-fix | small-task | sl
 2026-05-07  /app/inbox       no way to view original raw text of a doc                  →  small-task (queued)
 2026-05-07  /app/inbox       approval is binary · no reject/needs-attention/notes       →  small-task (queued)
 2026-05-07  global           UI in English · docs + company in Romanian                 →  slice-7 candidate: i18n pass
-2026-05-07  /app/inbox       Draft Reply only for client_request · accountant too?      →  just-fix (queued)
+2026-05-07  /app/inbox       Draft Reply only for client_request · accountant too?      →  small-task: dogfood-2.audit-and-draft-polish (forming)
 2026-05-07  /app/inbox       no search/filter in doc list · breaks past ~15 docs        →  small-task (queued post-15-docs)
-2026-05-07  /app/inbox       audit timeline shows internal event names (analysis_complete) →  just-fix (queued)
+2026-05-07  /app/inbox       audit timeline shows internal event names (analysis_complete) →  small-task: dogfood-2.audit-and-draft-polish (forming)
 2026-05-07  /app/ask         no doc-count or index status shown                         →  just-fix (queued)
 2026-05-07  /app/inbox       no retry button on failed analysis                         →  small-task (queued)
 2026-05-07  global           due dates extracted but not surfaced (no calendar/filter)  →  slice-7 candidate

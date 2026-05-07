@@ -1,0 +1,159 @@
+---
+id: dogfood-2.audit-and-draft-polish
+type: small-task
+domain: bca.frontend + bca.backend
+agreement: bca.build-roadmap
+state: forming
+density: L2.5
+parent: dogfood-mode
+---
+
+# Dogfood Task 2 · Audit Timeline Humanization · Draft Reply for Accountant Email
+
+*two tiny field-notes items in one builder cycle · 1–2 commits*
+
+---
+
+## Why
+
+Two unrelated polish items, both small, bundled together so the builder cycle isn't ceremony-heavy.
+
+**(A) Audit timeline shows internal event names.** The right column on `/app/inbox` shows entries like `analyzed by · invoice extractor`, `pipeline failed · llm call`, `not supported yet`. Those are internal slugs leaking through `eventLabel()`'s naïve `_→space, :→·` replacement. A potential client reading this thinks "this is a developer log." It should read like a human-readable history: "AI analysis · invoice extractor", "Approved by user", "Document uploaded".
+
+**(B) Draft Reply only renders for `client_request`.** The DraftReplyPanel mounts only when `selected.type === 'client_request'`. The accountant email in the demo set is type `accountant_request` and is exactly the kind of message a user would want a draft for ("the accountant is asking for missing documents — write me a polite reply"). The reply prompt in `email_reply_draft_v1.txt` is already generic ("drafting a business email reply for a Romanian SME"), no prompt change needed — just widen `applies_to` and the frontend gate.
+
+Neither item changes data shape, schema, or analyzer protocol.
+
+---
+
+## Scope
+
+```
+IN     audit label map        apps/web/src/routes/app/inbox/+page.svelte
+                                replace eventLabel()'s naïve replace with a small map for known event types
+                                + a fallback humanizer for prefixed events (analyzed_by:<x> · analysis_failed:<x> · pipeline_failed:<x>)
+                                map covers: uploaded · approved · ocr_required · not_supported_yet
+                                prefixed: analyzed_by:<analyzer> → "AI analysis · <analyzer human label>"
+                                          analysis_failed:<analyzer> → "Analysis failed · <analyzer human label>"
+                                          pipeline_failed:<step> → "Pipeline error · <step>"
+                                analyzer human labels: invoice_extractor → "Invoice extractor", classifier → "Classifier",
+                                  summarizer → "Summarizer", contract_reviewer → "Contract reviewer",
+                                  document_indexer → "Document indexer", draft_reply_generator → "Draft reply"
+
+       draft for accountant   apps/api/app/analyzers/draft_reply_generator.py
+                                applies_to = {"client_request", "accountant_request"}
+                              apps/web/src/routes/app/inbox/+page.svelte
+                                gate: selected.type === 'client_request' || selected.type === 'accountant_request'
+
+OUT    new event types           do not invent new audit events · just relabel existing ones
+       prompt rewrite            email_reply_draft_v1.txt is generic enough · do not edit
+       schema change             no Document/AuditEvent column change
+       analyzer rename           keep internal names · only the display string changes
+       any other UX item         later codons cover deep-links · view-original · search/filter
+```
+
+---
+
+## Acceptance
+
+```
+1  open /app/inbox · select any document with analysis events
+   → audit timeline shows human-readable strings only
+   → no underscores · no colons · no analyzer slug like "draft_reply_generator"
+   → unknown event types still render readably (graceful fallback)
+
+2  re-seed and approve a doc → "Approved by user" appears (not "approved")
+
+3  select the accountant email (email_accountant_missing_docs_april.pdf)
+   → DraftReplyPanel renders below the analysis panel
+   → draft body is in Romanian (or matches detected_language)
+   → human_review_required=true · no Send button (existing safeguard)
+
+4  re-seed and check: draft_reply_generator now runs on accountant_request docs
+   → analyzer_outputs.draft_reply_generator is populated for that doc
+
+5  npm run check passes · no new svelte-check errors
+   eval harness still passes (draft_reply fixture is on the apartment client_request — unchanged)
+```
+
+---
+
+## Files
+
+```
+EDIT   apps/web/src/routes/app/inbox/+page.svelte
+        replace eventLabel() body with a map + prefix-aware humanizer
+        widen DraftReplyPanel mount gate to accept accountant_request
+
+EDIT   apps/api/app/analyzers/draft_reply_generator.py
+        applies_to: {"client_request"} → {"client_request", "accountant_request"}
+```
+
+---
+
+## Constraints inherited
+
+```
+- L2.5 codon hygiene · two-item bundle · do not split into 4 commits
+- AI prepares · humans approve · no auto-send for accountant emails either
+- Analyzer framework: registry already dispatches by applies_to · no analysis.py edits
+- No schema migration · no Pydantic schema changes
+- Romanian UI is its own task · these labels are still English (audit timeline)
+```
+
+---
+
+## Builder prompt
+
+You are the builder for `dogfood-2.audit-and-draft-polish`. Read this whole codon and `ops/project.state.hybrid` before you start. Scope is exactly the IN list. Two commits target:
+
+1. **Backend + frontend gate: draft reply on accountant_request** (one commit, two files)
+   - `apps/api/app/analyzers/draft_reply_generator.py`: change `applies_to = {"client_request"}` to `applies_to = {"client_request", "accountant_request"}`. Nothing else.
+   - `apps/web/src/routes/app/inbox/+page.svelte`: change the DraftReplyPanel mount condition from `selected.type === 'client_request'` to include `accountant_request`. Use a small set or `||` — your call.
+   - Reseed (`uv run python scripts/seed_demo.py`) and verify the accountant email now has a draft reply rendered.
+
+2. **Frontend: humanize audit timeline** (`apps/web/src/routes/app/inbox/+page.svelte`)
+   - Replace the body of `eventLabel(event_type)` with:
+     - A literal map for: `uploaded` → "Document uploaded", `approved` → "Approved by user", `ocr_required` → "OCR required (image-only PDF)", `not_supported_yet` → "Not yet supported".
+     - A prefix branch: if `event_type` contains `:`, split on the first `:` and humanize per these rules:
+       - `analyzed_by` → "AI analysis · <analyzer label>"
+       - `analysis_failed` → "Analysis failed · <analyzer label>"
+       - `pipeline_failed` → "Pipeline error · <step>" (step is shown raw, replace `_` with space)
+     - Analyzer label map (in the same file, alongside DOC_TYPES/FIELD_LABELS): the six analyzer names listed in IN above.
+     - Fallback for anything unmapped: the current naïve replace. Don't crash on new event types.
+   - Run `npm run check` before committing.
+
+Manual acceptance after both commits land:
+- Open `/app/inbox`, select a `done` document, confirm audit timeline reads cleanly.
+- Select the accountant email, confirm DraftReplyPanel renders with a Romanian draft.
+- No `_` or `:` visible in any timeline entry.
+
+Append one line to this codon's `## Patchlog` and one line to `ops/project.state.hybrid` patchlog when shipped.
+
+If a label feels awkward when you see it on screen, adjust the string in the map — that's a judgment call inside scope. If you find an event_type that isn't in the map and the fallback looks ugly, add it to the map; do not add new event_type strings on the backend.
+
+---
+
+## State
+
+```
+state    forming
+ships    1–2 commits
+gravity  MEDIUM (audit cosmetics) + MEDIUM (accountant flow) · low risk
+```
+
+---
+
+## Open edges
+
+```
+—
+```
+
+---
+
+## Patchlog
+
+```
+2026-05-07  coordinator(opus)  codon written · seed→forming · 2-item bundle · 2 file edits · no schema · no analyzer protocol change
+```
