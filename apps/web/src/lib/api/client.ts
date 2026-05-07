@@ -68,11 +68,18 @@ export const api = {
 		return request(`/api/documents/${id}`);
 	},
 
-	async uploadDocument(text: string, filename: string, type: string): Promise<UploadResult> {
+	async uploadDocument(
+		input: { file: File } | { text: string; filename: string }
+	): Promise<UploadResult> {
 		const form = new FormData();
-		form.append('text', text);
-		form.append('filename', filename);
-		form.append('type', type);
+		form.append('type', 'unknown');
+		if ('file' in input) {
+			form.append('file', input.file);
+			form.append('filename', input.file.name);
+		} else {
+			form.append('text', input.text);
+			form.append('filename', input.filename);
+		}
 		return request('/api/documents', { method: 'POST', body: form });
 	},
 
