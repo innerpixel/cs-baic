@@ -88,7 +88,7 @@ format:  <date>  <area>  <observation>  →  <action: just-fix | small-task | sl
 
 2026-05-07  /app/inbox       contract panel rendered [object Object] for list items     →  just-fix (shipped 1bda531)
 2026-05-07  contract review  caught 3 real legal gaps in lumina contract                →  positive signal · no action
-2026-05-07  /app/inbox       upload form is paste-text + manual filename + manual type  →  small-task: dogfood-1.upload-dragdrop (forming)
+2026-05-07  /app/inbox       upload form is paste-text + manual filename + manual type  →  small-task: dogfood-1.upload-dragdrop (shipped 0843bc4)
 2026-05-07  /app/ask         source filenames don't deep-link to the doc                →  small-task (queued)
 2026-05-07  /app/inbox       no way to view original raw text of a doc                  →  small-task (queued)
 2026-05-07  /app/inbox       approval is binary · no reject/needs-attention/notes       →  small-task (queued)
