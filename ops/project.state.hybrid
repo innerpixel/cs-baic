@@ -86,12 +86,28 @@ deferred until dogfood is winding down (needed to refine slice-6.deploy):
 ```
 format:  <date>  <area>  <observation>  →  <action: just-fix | small-task | slice-N>
 
-  empty · add entries as you find things while using the demo
-  examples of what to log:
-    UX friction (label unclear · loading slow · empty state confusing)
-    AI quality drift (answer wrong · source citation odd · draft tone off)
-    bugs (error after action X · status stuck · UI shows stale data)
-    surprises good or bad ("this is better than I expected" matters too)
+2026-05-07  /app/inbox       contract panel rendered [object Object] for list items     →  just-fix (shipped 1bda531)
+2026-05-07  contract review  caught 3 real legal gaps in lumina contract                →  positive signal · no action
+2026-05-07  /app/inbox       upload form is paste-text + manual filename + manual type  →  small-task: dogfood-1.upload-dragdrop (forming)
+2026-05-07  /app/ask         source filenames don't deep-link to the doc                →  small-task (queued)
+2026-05-07  /app/inbox       no way to view original raw text of a doc                  →  small-task (queued)
+2026-05-07  /app/inbox       approval is binary · no reject/needs-attention/notes       →  small-task (queued)
+2026-05-07  global           UI in English · docs + company in Romanian                 →  slice-7 candidate: i18n pass
+2026-05-07  /app/inbox       Draft Reply only for client_request · accountant too?      →  just-fix (queued)
+2026-05-07  /app/inbox       no search/filter in doc list · breaks past ~15 docs        →  small-task (queued post-15-docs)
+2026-05-07  /app/inbox       audit timeline shows internal event names (analysis_complete) →  just-fix (queued)
+2026-05-07  /app/ask         no doc-count or index status shown                         →  just-fix (queued)
+2026-05-07  /app/inbox       no retry button on failed analysis                         →  small-task (queued)
+2026-05-07  global           due dates extracted but not surfaced (no calendar/filter)  →  slice-7 candidate
+```
+
+Decided 2026-05-07 (architecture · do not re-propose):
+```
+single-tenant per install · each Romanian SME gets their own server · no shared SaaS
+no login system in MVP · one business owner per installation = one user by definition
+same codebase · different servers · /demo is the same app pointed at synthetic data
+slice-6 = package the app for VPS install · NOT mode flags · NOT auth scaffolds · NOT tenant config
+open service-model question (parked · not technical): self-install vs install-for-them
 ```
 
 ## Questions waiting on coordinator
@@ -167,5 +183,7 @@ branch   main
 2026-05-06  user                         direction set: dogfood → solidify → deploy on VPS · pilot conversations come after deployment
 2026-05-06  coordinator(opus)            entered dogfood mode · open scope · §Field notes section added for append-only observation log · slice-6.deploy seeded · 5 deploy questions deferred until dogfood is winding down
 2026-05-06  builder(claude-sonnet-4-6)  slice-5 code complete · pipeline hardening (try/except + audit event) · pgvector schema + HNSW index + DocumentChunk model + alembic migration · chunk_paragraph + embed_batch services · DocumentIndexer + DraftReplyGenerator analyzers (normal protocol · no pipeline edits) · top_k retrieval (pgvector cosine <=> operator) · POST /api/ask live endpoint · /app/ask + /app/inbox DraftReplyPanel wired to live API · 8-doc seed (7→8 adds client_request) · eval harness extended: ask_questions (5 fixtures) + draft_reply (1 fixture) + OR-list penalty scoring · BLOCKER: infra still on postgres:16 without pgvector · user must switch image before acceptance pass
+2026-05-07  user                         dogfood pass 1: found ContractTermsPanel [object Object] · 12 UX findings logged in ops/ux.discoveries.md
+2026-05-07  coordinator(opus)            dogfood batch 1 committed: contract list-items as strings (1bda531) + scripts hygiene (1433142) · field notes seeded · tenancy decision recorded (single-tenant per install · no MVP auth · same codebase different servers) · dogfood-1.upload-dragdrop codon written: state=forming · 1–3 commits target
 
 ```

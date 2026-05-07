@@ -1,0 +1,198 @@
+---
+id: dogfood-1.upload-dragdrop
+type: small-task
+domain: bca.frontend + bca.backend
+agreement: bca.build-roadmap
+state: forming
+density: L2.5
+parent: dogfood-mode
+---
+
+# Dogfood Task 1 · Drag-and-Drop File Upload
+
+*paste-text form → drop a real file · auto-detect type · derive filename · 1–3 commits*
+
+---
+
+## Why
+
+The current `/app/inbox` upload form is the single most off-putting thing about the demo. It asks the user to:
+1. paste raw document text into a textarea
+2. type a filename manually
+3. pick one of 10 document types from a dropdown
+
+For the same effort the user could just process the document themselves. The form actively contradicts the product story ("private AI workspace · drop your docs in"). And every potential client who tries the demo touches this form first — first impression is "this is a toy."
+
+Three things are already true that make the fix small:
+- `pdfplumber` parsing shipped in slice-4. The backend `POST /api/documents` already accepts a PDF UploadFile and extracts text server-side.
+- The classifier analyzer auto-detects `classified_type` and the inbox already renders a `ClassifierBadge`. The user-supplied `type` field is effectively redundant.
+- The pipeline runs analyzers based on `classified_type` falling back to `type`, so defaulting `type` to `"unknown"` and letting the classifier take over is a clean path.
+
+This task removes the friction without touching the analyzer pipeline, the schema, or the deploy story.
+
+---
+
+## Scope
+
+```
+IN     frontend drop zone     /app/inbox sidebar Upload section
+                                visible drop zone (dashed border · "Drop a PDF or text file here · or click to browse")
+                                hidden <input type="file" accept=".pdf,.txt,application/pdf,text/plain"> for click-to-browse
+                                drag events: dragenter/dragover/dragleave/drop · prevent default · highlight on dragover
+                                single file at a time · multi-file deferred
+
+       paste-text fallback   collapsed by default · "Or paste text…" link expands the existing textarea + filename input
+                                kept for tiny corrections · not the primary path
+
+       filename derived       File.name → uploadFilename · user does not type
+                                paste-text fallback: auto-generate `pasted_<YYYYMMDD-HHMMSS>.txt` if user leaves blank
+
+       type auto-detect       remove the <select> from the form entirely
+                                api/client.ts uploadDocument signature: drop the `type` parameter
+                                send `type="unknown"` to the API · classifier overwrites with classified_type
+                                ClassifierBadge already renders the detected type in the inbox list
+
+       backend default        app/api/documents.py: VALID_TYPES already includes "unknown"
+                                no schema change · no migration · no analyzer change
+                                file upload path already calls parse_pdf on application/pdf
+                                add: text/plain content-type handling (read bytes → utf-8) for .txt drops
+
+       loading + error UX     keep the existing uploading state · show selected filename + size before submit
+                                show parse errors clearly (e.g. "Could not extract text · image-only PDF")
+                                clear the drop zone after a successful upload
+
+OUT    multi-file drop        one file per submit for now · multi-file is its own task
+       progress bar           file is small · one spinner is enough · revisit if pilot complains
+       any analyzer change    classifier handles type detection as it does today
+       any DB migration       type column stays · "unknown" is already a valid value
+       Romanian UI            tracked separately · do not start that in this task
+       view-original-doc      tracked separately in ux.discoveries.md
+```
+
+---
+
+## Acceptance
+
+```
+1  drop a PDF onto the drop zone in /app/inbox sidebar
+   → file appears as "<filename> · <size> KB" before submit
+   → click Submit
+   → document is created with status="queued" · type="unknown"
+   → within ~10s document moves to status="done"
+   → ClassifierBadge in the inbox list shows the AI-detected type (not "Unknown")
+   → no manual filename or type entry was needed at any step
+
+2  drop a .txt file onto the drop zone
+   → backend reads bytes as utf-8 · creates document with that text · pipeline runs
+
+3  click "Or paste text…" → existing paste path still works (fallback)
+
+4  drop an image-only PDF
+   → backend creates document with status="not_supported_yet" + ocr_required audit event (existing behavior)
+   → frontend shows a clear "Could not extract text from this PDF" message
+
+5  drop the demo PDFs from apps/api/scripts/demo_pdfs/ one at a time
+   → each one classifies correctly (matches what seed_demo.py declared as the type)
+
+6  no manual document-type dropdown anywhere on the page
+
+7  npm run check passes · no new svelte-check errors
+```
+
+---
+
+## Files
+
+```
+EDIT   apps/web/src/routes/app/inbox/+page.svelte
+        replace upload-form block: drop zone + hidden file input + collapsed paste fallback
+        remove DOC_TYPES dropdown from form (the const can stay if used elsewhere · audit it)
+        new state: uploadFile (File | null), uploadDragOver (bool), pasteFallbackOpen (bool)
+        handleUpload reads uploadFile and posts via uploadDocument(file) OR uploadText path
+
+EDIT   apps/web/src/lib/api/client.ts
+        uploadDocument: drop `type` parameter
+        accept either { file: File } OR { text: string, filename: string }
+        send type="unknown" server-side · let backend + classifier do the rest
+
+EDIT   apps/api/app/api/documents.py
+        accept text/plain content-type alongside application/pdf
+        for text/plain: file_bytes.decode("utf-8", errors="replace") → raw_text
+        no other change · type="unknown" is already valid
+```
+
+---
+
+## Constraints inherited (from rules.constraints + project.state)
+
+```
+- L2.5 codon hygiene: small task = small codon · do not bloat
+- AI prepares · humans approve: approval flow untouched
+- Single-tenant deployment model: do not add auth gates · do not add tenant config
+- Analyzer framework: zero edits to analysis.py · zero new analyzers
+- No schema migration · no Pydantic schema changes
+- Romanian UI is its own task · keep current English copy
+```
+
+---
+
+## Builder prompt
+
+You are the builder for `dogfood-1.upload-dragdrop`. Read this whole codon and `ops/project.state.hybrid` before you start. Your scope is exactly the IN list above. Do not improvise.
+
+Three commits is the target shape:
+
+1. **Backend: accept text/plain uploads** (`apps/api/app/api/documents.py`)
+   Add a branch alongside the existing `application/pdf` path: when `file.content_type == "text/plain"`, read bytes and decode utf-8 with `errors="replace"`. Skip parse_pdf in that branch. Everything else (audit event, queueing, run_analysis dispatch) stays identical. Test with curl uploading a .txt file before moving on.
+
+2. **API client: simplify uploadDocument** (`apps/web/src/lib/api/client.ts`)
+   Replace the current 3-arg signature with a discriminated input:
+   ```ts
+   uploadDocument(input: { file: File } | { text: string; filename: string }): Promise<UploadResult>
+   ```
+   Build the FormData accordingly. Always send `type="unknown"`. Update the `UploadResult` type if needed. Run `npm run check` before committing.
+
+3. **Frontend: drop zone replaces the form** (`apps/web/src/routes/app/inbox/+page.svelte`)
+   - Remove the `<select>` from the upload form. Audit `DOC_TYPES` usage — keep the const only if `typeLabel()` or another reader still needs it.
+   - Build a drop zone (dashed border, ~120px tall, centered text "Drop a PDF or text file · or click to browse"). Wire dragenter/dragover/dragleave/drop with `preventDefault()`. On drop, set `uploadFile`. Highlight on dragover (e.g. lighter border).
+   - Below the drop zone: a small "Or paste text…" link that toggles `pasteFallbackOpen`. When open, show the existing textarea + filename input. Default closed.
+   - Submit button: enabled when `uploadFile` is set OR (paste is open AND text is non-empty).
+   - On successful upload: clear `uploadFile`, close paste fallback, refresh `loadList()` (already wired).
+   - Show a clear inline error if upload returns `status="not_supported_yet"` ("Could not extract text from this PDF — likely image-only.").
+   - File preview: when a file is selected, show "📄 {file.name} · {(file.size/1024).toFixed(0)} KB" above the submit button.
+   - Run `npm run check` before committing.
+
+Manual acceptance after all three commits land:
+- Drop one of `apps/api/scripts/demo_pdfs/invoice_lumina_design_2026_0041.pdf` onto the zone → `done` within ~10s → ClassifierBadge shows "Supplier Invoice".
+- Drop the `email_client_apartament_bucuresti.pdf` → classifier detects `client_request` → DraftReplyPanel renders (existing behavior).
+- Open "Or paste text…" → paste a short string → still works.
+
+Append one line to this codon's `## Patchlog` and one line to `ops/project.state.hybrid` patchlog when shipped.
+
+If you hit a real blocker (parse_pdf chokes on text/plain, drop event fires but file is undefined in some browser), stop, append to `## Open edges` below, commit what you have, report back. Do not re-architect the upload pipeline.
+
+---
+
+## State
+
+```
+state    forming
+ships    1–3 commits
+gravity  HIGH for demo-feel · LOW for product surface
+```
+
+---
+
+## Open edges
+
+```
+—
+```
+
+---
+
+## Patchlog
+
+```
+2026-05-07  coordinator(opus)  codon written · seed→forming · scope: dragdrop · auto-type · paste fallback · 3 file edits · no schema · no analyzer change
+```
