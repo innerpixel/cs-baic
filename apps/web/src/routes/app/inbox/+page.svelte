@@ -477,8 +477,8 @@
 				/>
 			{/if}
 
-			<!-- Draft Reply Panel (client_request only) -->
-			{#if selected.type === 'client_request' && selected.analysis}
+			<!-- Draft Reply Panel (client_request + accountant_request) -->
+			{#if (selected.type === 'client_request' || selected.type === 'accountant_request') && selected.analysis}
 				<DraftReplyPanel analyzerOutputs={selected.analysis.analyzer_outputs} />
 			{/if}
 		{:else if selected.status === 'done'}

@@ -34,7 +34,7 @@ def _format_context(hits) -> str:
 class DraftReplyGenerator:
     name = "draft_reply_generator"
     version = "v1"
-    applies_to = {"client_request"}
+    applies_to = {"client_request", "accountant_request"}
 
     def run(self, document) -> AnalyzerResult:
         raw_text: str = document.raw_text or ""
