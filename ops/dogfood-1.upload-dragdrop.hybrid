@@ -176,7 +176,7 @@ If you hit a real blocker (parse_pdf chokes on text/plain, drop event fires but 
 ## State
 
 ```
-state    forming
+state    stable
 ships    1–3 commits
 gravity  HIGH for demo-feel · LOW for product surface
 ```
@@ -195,4 +195,5 @@ gravity  HIGH for demo-feel · LOW for product surface
 
 ```
 2026-05-07  coordinator(opus)  codon written · seed→forming · scope: dragdrop · auto-type · paste fallback · 3 file edits · no schema · no analyzer change
+2026-05-07  builder(claude-sonnet-4-6)  shipped · 3 commits · backend text/plain · client discriminated input · frontend drop zone + paste fallback · 0 type errors · state→stable
 ```
