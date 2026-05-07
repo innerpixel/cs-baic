@@ -57,7 +57,33 @@
 		return iso.replace('T', ' ').slice(0, 16);
 	}
 
-	function eventLabel(event_type: string) {
+	const EVENT_LABELS: Record<string, string> = {
+		uploaded: 'Document uploaded',
+		approved: 'Approved by user',
+		ocr_required: 'OCR required (image-only PDF)',
+		not_supported_yet: 'Document type not yet supported'
+	};
+
+	const ANALYZER_LABELS: Record<string, string> = {
+		invoice_extractor: 'Invoice extractor',
+		classifier: 'Classifier',
+		summarizer: 'Summarizer',
+		contract_reviewer: 'Contract reviewer',
+		document_indexer: 'Document indexer',
+		draft_reply_generator: 'Draft reply'
+	};
+
+	function eventLabel(event_type: string): string {
+		if (EVENT_LABELS[event_type]) return EVENT_LABELS[event_type];
+		const colon = event_type.indexOf(':');
+		if (colon !== -1) {
+			const prefix = event_type.slice(0, colon);
+			const suffix = event_type.slice(colon + 1);
+			const suffixLabel = ANALYZER_LABELS[suffix] ?? suffix.replace(/_/g, ' ');
+			if (prefix === 'analyzed_by') return `AI analysis · ${suffixLabel}`;
+			if (prefix === 'analysis_failed') return `Analysis failed · ${suffixLabel}`;
+			if (prefix === 'pipeline_failed') return `Pipeline error · ${suffixLabel}`;
+		}
 		return event_type.replace(/_/g, ' ').replace(/:/g, ' · ');
 	}
 
