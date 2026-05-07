@@ -53,10 +53,13 @@ async def upload_document(
             ))
             db.commit()
             return {"id": str(doc_id), "status": "not_supported_yet"}
+    elif file is not None and file.content_type in ("text/plain", "text/plain; charset=utf-8"):
+        file_bytes = await file.read()
+        raw_text = file_bytes.decode("utf-8", errors="replace")
     elif text is not None:
         raw_text = text
     else:
-        raise HTTPException(status_code=422, detail="Provide either 'text' or a PDF 'file'.")
+        raise HTTPException(status_code=422, detail="Provide either 'text' or a PDF/text 'file'.")
 
     doc_id = uuid.uuid4()
     doc = Document(id=doc_id, filename=filename, type=type, raw_text=raw_text, status="queued")
