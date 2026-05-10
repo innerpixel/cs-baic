@@ -16,11 +16,14 @@ density: L2.5
 ## Now
 
 ```
-phase      1 · MVP demo loop complete · DOGFOOD MODE
-current    dogfood · open scope · user uses the demo · field notes accumulate in §Field notes
-            small fixes dispatched as targeted builder tasks (1-3 commits each)
-            structural finds become slice-7+ items · don't pre-plan
-next       slice-6.deploy · VPS deployment · refined when dogfood is winding down
+phase      1 stable · DEMO POLISH PHASE
+public     NovAI Desk · novaidesk.csmcl.space  (internal: Business Companion AI / BCA)
+current    slice-7 forming · NovAI Desk inbox demo · Atelier Nova SRL
+            PDF generator (weasyprint) · embedded viewer · site IA · About page ·
+            upload-back loop · ~18 demo PDFs across 6 classifier categories
+next       slice-8  Meridian / Urban Novel Desk archive package (~45 docs)
+           slice-9  Ask My Company guided experience
+           slice-6  VPS deployment (after slice-9)
 blocked    —
 ```
 
@@ -50,7 +53,10 @@ slice-2  demo-data + ask + reply mocks               stable     gravity HIGH
 slice-3  monorepo + fastapi + invoice extractor e2e  stable          5/5 invoices extracted clean
 slice-4  classifier + summary + PDF + eval harness   stable     9/10 eval · contract_reviewer 10/10 · dict preservation verified
 slice-5  RAG (pgvector) + Ask live + Draft live          stable     8 docs · 33 chunks · grounded ask + Romanian draft + honest "not found" verified live · OCR deferred
-slice-6  VPS deployment (docker compose · nginx · HTTPS)  seed       refine when dogfood is winding down · open questions: hosting · domain · prod LLM key
+slice-7  NovAI Desk inbox demo · Atelier Nova SRL    forming    PDF generator (weasyprint) + embedded viewer + site IA + About page + upload-back loop + ~18 demo PDFs across 6 classifier categories · existing 8 docs reclassified as dev_source bootstrap
+slice-8  Meridian archive package · Urban Novel Desk seed       ~45 demo docs across 5 departments (Commercial · Supply Chain · Legal · Accounting · Admin) · 3 named trading lines · reuses slice-7 PDF generator · content-heavy
+slice-9  Ask My Company guided experience            seed       guide panel · suggested questions grouped by department · archive status banner · clickable sources · regression eval set against Meridian
+slice-6  VPS deployment (docker compose · nginx · HTTPS)  seed       deferred until after slice-9 · open: hosting · prod LLM key · postgres on-VPS vs managed · backups · domain answered (novaidesk.csmcl.space)
 ```
 
 ---
@@ -66,6 +72,13 @@ slice-6  VPS deployment (docker compose · nginx · HTTPS)  seed       refine wh
 2026-05-05  CLAUDE.md written
 2026-05-05  codon coordination model adopted (from csmcl.space)
 2026-05-05  slice-1 shipped: git init · SvelteKit+Svelte5+TS+Tailwind4 · / /demo /app/inbox · 4 synthetic demo docs · dark-gray palette · README
+2026-05-10  public name decided: NovAI Desk · domain novaidesk.csmcl.space (subdomain of csmcl.space)
+2026-05-10  ICP refinement: PRIMARY standalone RO SMEs 5–50 ppl · SECONDARY in-house teams inside RO enterprises (legal · compliance · M&A · internal audit)
+2026-05-10  synthetic demo companies locked: Atelier Nova SRL (Inbox · arch studio) + Meridian Comerț Internațional SRL (Ask · industrial spare parts trading · codename Urban Novel Desk)
+2026-05-10  ops/companies.synthetic.hybrid authored: canonical identities · all counterparties · Ɛ-swap + .example safety conventions
+2026-05-10  PDF authoring approach: Bar B (authored PDFs via weasyprint · ~8 visual templates reused across both companies)
+2026-05-10  demo polish slice plan: slice-7 → slice-8 → slice-9 → slice-6
+2026-05-10  rules.constraints amended: Naming section (public/internal split) · Data section (two demo companies + identity file + Ɛ-swap)
 ```
 
 ---
@@ -73,9 +86,11 @@ slice-6  VPS deployment (docker compose · nginx · HTTPS)  seed       refine wh
 ## Decisions waiting on user
 
 ```
-deferred until dogfood is winding down (needed to refine slice-6.deploy):
+answered 2026-05-10:
+  - domain         novaidesk.csmcl.space (subdomain of csmcl.space)
+
+still deferred until slice-9 wraps (needed to refine slice-6.deploy):
   - hosting        VPS provider (Hetzner / OVH / DigitalOcean / CSMCL infra) · EU region
-  - domain         subdomain of csmcl.space OR separate name (.ai / .ro / .com)
   - LLM in prod    same Mistral key as dev OR separate prod key · rate-limit/cost budget
   - postgres       on-VPS (simpler) OR managed (more reliable)
   - backups        pg_dump → S3-compatible object storage cadence
@@ -99,6 +114,20 @@ format:  <date>  <area>  <observation>  →  <action: just-fix | small-task | sl
 2026-05-07  /app/ask         no doc-count or index status shown                         →  just-fix (queued)
 2026-05-07  /app/inbox       no retry button on failed analysis                         →  small-task (queued)
 2026-05-07  global           due dates extracted but not surfaced (no calendar/filter)  →  slice-7 candidate
+
+2026-05-10  ABSORBED INTO slice-7:
+            · /app/inbox no way to view raw text                → View source panel + embedded PDF viewer
+            · /app/ask source filenames don't deep-link         → clickable source links to doc detail
+            · /app/inbox approval binary                        → Mark needs review action
+            · global UI English / docs Romanian (i18n pass)     → site IA copy in slice-7
+
+2026-05-10  ABSORBED INTO slice-9:
+            · /app/ask no doc-count or index status             → archive status banner
+            · /app/inbox search/filter post-15-docs             → relevant once Meridian's ~45 docs land
+
+2026-05-10  STILL STANDALONE (queued):
+            · /app/inbox no retry button on failed analysis
+            · global due dates extracted but not surfaced
 ```
 
 Decided 2026-05-07 (architecture · do not re-propose):
@@ -108,6 +137,17 @@ no login system in MVP · one business owner per installation = one user by defi
 same codebase · different servers · /demo is the same app pointed at synthetic data
 slice-6 = package the app for VPS install · NOT mode flags · NOT auth scaffolds · NOT tenant config
 open service-model question (parked · not technical): self-install vs install-for-them
+```
+
+Decided 2026-05-10 (naming · data · do not re-propose):
+```
+public name = NovAI Desk · internal name = Business Companion AI / BCA · they coexist
+two synthetic demo companies (Atelier Nova SRL · Meridian / Urban Novel Desk) ·
+canonical identities live in ops/companies.synthetic.hybrid · do not invent outside it
+PDF authoring via weasyprint (Bar B) · authored PDFs from the start · ~8 visual templates
+existing 8 docs → dev_source · kept as bootstrap + regression fixtures · never public
+public upload: PDF + ZIP only (drop text-upload from public UI · keep internal for evals) ·
+caps 10 MB ZIP / 5 MB PDF / 20 PDFs per ZIP
 ```
 
 ## Questions waiting on coordinator
@@ -187,5 +227,7 @@ branch   main
 2026-05-07  coordinator(opus)            dogfood batch 1 committed: contract list-items as strings (1bda531) + scripts hygiene (1433142) · field notes seeded · tenancy decision recorded (single-tenant per install · no MVP auth · same codebase different servers) · dogfood-1.upload-dragdrop codon written: state=forming · 1–3 commits target
 2026-05-07  builder(claude-sonnet-4-6)  dogfood-1 shipped · drop zone replaces paste form · text/plain backend · discriminated upload client · paste fallback · 0 type errors · 3 commits · codon→stable
 2026-05-07  builder(claude-sonnet-4-6)  dogfood-2 shipped · draft_reply_generator widens to accountant_request · audit timeline humanized (map + prefix-aware fallback) · 0 type errors · 2 commits · codon→stable
+2026-05-10  coordinator(opus)          ops/companies.synthetic.hybrid authored · canonical identities for both demo companies + all counterparties (suppliers · clients · accountants · external counsel) · Ɛ-swap (U+0190) + .example TLD safety conventions · cross-references mapping which counterparty appears in which slice
+2026-05-10  coordinator(opus)          demo polish phase locked via discussion · public name NovAI Desk · domain novaidesk.csmcl.space · ICP refined (primary standalone RO SMEs · secondary in-house teams inside RO enterprises like Mega Image RO legal) · 2nd synthetic company added: Meridian Comerț Internațional SRL (industrial spare parts trading · codename Urban Novel Desk) · slice-7/8/9 plan locked · slice-6 deferred until after slice-9 · PDF authoring Bar B (weasyprint authored PDFs from the start) · existing 8 docs reclassified as dev_source bootstrap · public upload restricted to PDF + ZIP · ~6 dogfood field notes absorbed into slice-7/9 · rules.constraints amended (Naming section + Data section + Ɛ-swap safety) · slice-7 codon next
 
 ```

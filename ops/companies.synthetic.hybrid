@@ -1,0 +1,287 @@
+---
+id: companies.synthetic
+type: reference
+domain: bca.demo-content
+state: stable
+density: L2.5
+---
+
+# Synthetic Demo Companies · Canonical Identities
+
+*Atelier Nova SRL (Inbox demo) · Meridian Comerț Internațional SRL · codename Urban Novel Desk (Ask My Company demo)*
+
+This file is the single source of truth for both synthetic companies and all their counterparties. Every document authored for the demo (PDFs, emails, contracts, invoices, accountant requests) references identities defined here. Do not invent identities outside this file. If a doc needs a counterparty not yet listed, add it here first.
+
+---
+
+## Safety conventions
+
+All synthetic IDs are designed to be visually realistic but mechanically unable to collide with real Romanian entities or systems.
+
+```
+1   Inverted-E swap         every CUI · CNP · J-number · IBAN contains at least
+                            one  Ɛ  (U+0190 LATIN CAPITAL LETTER OPEN E)
+                            in place of a digit · reads as 3 to a human · is
+                            classified as a letter · cannot validate against ANAF
+                            or banking systems · also applied to phone numbers
+
+2   .example TLD            all email domains end in  .example  (RFC 2606
+                            reserved · guaranteed unregistrable)
+
+3   Real street names       used for atmosphere · with synthetic street numbers
+                            and postal codes
+
+4   Synthetic personal names    common Romanian forms · do not deliberately match
+                                well-known public individuals
+
+5   No real entity overlap   names of synthetic companies and counterparties
+                             should be checked against the ONRC public registry
+                             before being added · verification is a builder
+                             responsibility before each new identity is committed
+```
+
+---
+
+## Atelier Nova SRL · Inbox demo company
+
+```
+Identity
+  Name           Atelier Nova SRL
+  Activity       Studio de arhitectură și design interior
+                 (architecture & interior design studio)
+  Size           ~8 people
+  CUI            RO 15 Ɛ45 678
+  Reg. com.      J40/Ɛ892/2018
+  Address        Strada Plopilor nr. 14, București, Sector 1, 010101
+  IBAN           RO47 BTRL RONC RT01 Ɛ123 4567       (Banca Transilvania)
+  Phone          +40 7Ɛ1 234 567
+  Email          contact@ateliernova.example
+  Website        ateliernova.example
+  Owner          arh. Maria Ionescu      (maria.ionescu@ateliernova.example)
+  Operations     Andrei Popescu          (site coordination · andrei@ateliernova.example)
+```
+
+### Counterparties — suppliers (3 distinct visual templates)
+
+```
+Lumina Design SRL                  lighting fixtures
+  CUI            RO 12 Ɛ45 670
+  Reg. com.      J40/2Ɛ45/2014
+  Address        Bd. Theodor Pallady nr. 51, București, Sector 3, 032258
+  IBAN           RO63 BTRL RONC RT00 Ɛ987 6543       (Banca Transilvania)
+  Email          comenzi@luminadesign.example
+  Contact        Cristina Voicu          (sales · cristina@luminadesign.example)
+
+Mobilier Stejarul SRL              custom furniture · solid wood
+  CUI            RO 18 7Ɛ4 002
+  Reg. com.      J22/1Ɛ7/2009
+  Address        Str. Gării nr. 42, Pipirig, județul Neamț, 617345
+  IBAN           RO54 RNCB 0082 Ɛ123 4567 8902       (BCR)
+  Email          comenzi@mobilier-stejarul.example
+  Contact        Vasile Mureșan          (production · vasile@mobilier-stejarul.example)
+
+PrimaSoft IT SRL                   software subscriptions (CAD, project mgmt)
+  CUI            RO 22 Ɛ09 115
+  Reg. com.      J40/8Ɛ12/2017
+  Address        Str. Buzești nr. 75, București, Sector 1, 011014
+  IBAN           RO19 INGB 0000 99Ɛ8 7654 3210       (ING Bank)
+  Email          billing@primasoft.example
+  Contact        Răzvan Tudor            (account manager · razvan@primasoft.example)
+```
+
+### Counterparties — clients (2)
+
+```
+Cabinet Stomatologic Dr. Popa SRL       small dental clinic
+  CUI            RO 28 6Ɛ7 412
+  Reg. com.      J40/4Ɛ23/2019
+  Address        Str. Maria Rosetti nr. 22, București, Sector 2, 020485
+  Phone          +40 7Ɛ4 567 890
+  Email          contact@drpopa.example
+  Contact        dr. Alina Popa          (owner)
+
+Boutique Aurora SRL                     small fashion boutique
+  CUI            RO 31 Ɛ56 089
+  Reg. com.      J40/9Ɛ45/2020
+  Address        Calea Victoriei nr. 124, București, Sector 1, 010092
+  Phone          +40 7Ɛ8 901 234
+  Email          office@boutique-aurora.example
+  Contact        Diana Mihăescu          (founder)
+```
+
+### Counterparties — accountant
+
+```
+Cabinet Contabilitate Bilanț Clar SRL
+  CUI            RO 14 Ɛ72 305
+  Reg. com.      J40/6Ɛ45/2011
+  Address        Str. Pictor Verona nr. 18, București, Sector 1, 010313
+  IBAN           RO82 BRDE 4Ɛ0S V123 4567 8910       (BRD)
+  Email          contabilitate@bilantclar.example
+  Contact        ec. Daniela Andrei      (lead accountant · daniela@bilantclar.example)
+```
+
+---
+
+## Meridian Comerț Internațional SRL · Ask My Company demo company
+
+(internal codename: **Urban Novel Desk**)
+
+```
+Identity
+  Name           Meridian Comerț Internațional SRL
+  Activity       Import / export · piese de schimb și echipamente industriale
+                 (B2B industrial spare parts & equipment trading)
+  Size           ~30 people across 5 departments
+  CUI            RO 21 4Ɛ7 891
+  Reg. com.      J40/12Ɛ45/2015
+  Address        Calea Victoriei nr. 87, București, Sector 1, 010071
+  IBAN           RO77 RNCB 0082 99Ɛ4 5678 9012       (BCR)
+  Phone          +40 7Ɛ4 567 890
+  Email          office@meridian-trade.example
+  Website        meridian-trade.example
+  Director       Andrei Vasilescu        (a.vasilescu@meridian-trade.example)
+
+  Departments
+    Commercial         Cătălina Dobre        (head, sales)
+    Supply Chain       Mihai Stoica          (head, logistics & customs)
+    Legal              av. Ioana Lupașcu     (head, in-house legal · 3 people total)
+                       av. Bogdan Sîrbu      (legal · contracts)
+                       av. Elena Petraru     (legal · disputes)
+    Accounting         ec. Adrian Văcaru     (head, finance)
+    Administrative     Roxana Niță           (office manager)
+```
+
+### Counterparties — foreign suppliers (5 · 3 trading-line + 2 ongoing)
+
+```
+HydroBayern GmbH                   DE · hydraulic pumps · Linia Bavaria
+  USt-IdNr.      DE 28Ɛ 456 789
+  Address        Werkstraße 12, 80939 München, Germany
+  IBAN           DE89 3704 0044 0Ɛ32 0130 00         (Commerzbank)
+  Email          export@hydrobayern.example
+  Contact        Stefan Müller           (export sales · s.muller@hydrobayern.example)
+
+Anadolu Bearings A.Ş.              TR · industrial bearings · Contract Anatolia
+  Vergi No.      TR 47Ɛ 998 012
+  Address        OSB Mahallesi 12. Cad. No:34, Konya, Turkey
+  IBAN           TR33 0006 1005 1978 6Ɛ45 6789 012   (Türk Ekonomi Bankası)
+  Email          export@anadolu-bearings.example
+  Contact        Mehmet Kaya             (export · m.kaya@anadolu-bearings.example)
+
+Suzhou Precision Tools Co. Ltd.    CN · precision tooling · Acord Suzhou
+  USCC           91Ɛ20 305 MA1JK2P3X7
+  Address        88 Industrial Park Rd, Suzhou New District, Jiangsu, China
+  Payment        SWIFT to ICBC Suzhou (account ref synthetic)
+  Email          sales@suzhou-precision.example
+  Contact        Wei Zhang               (international sales · w.zhang@suzhou-precision.example)
+
+Officine Lombarde S.r.l.           IT · pneumatic components · ongoing supplier
+  P.IVA          IT 02 Ɛ45 678 901
+  Address        Via dell'Industria 45, 20060 Cassina de' Pecchi (MI), Italy
+  IBAN           IT60 X054 2811 1010 0000 Ɛ123 456   (Banco BPM)
+  Email          export@officine-lombarde.example
+  Contact        Luca Bianchi            (export · l.bianchi@officine-lombarde.example)
+
+ProTech Drives Ltd.                CN · electric motors · ongoing supplier
+  USCC           91Ɛ44 030 MA0HK3R8M2
+  Address        15 Pearl River Industrial Ave, Guangzhou, China
+  Email          export@protech-drives.example
+  Contact        Lily Chen               (sales · l.chen@protech-drives.example)
+```
+
+### Counterparties — Romanian B2B clients (3 · one per trading line)
+
+```
+AutoComp Industries SRL            Linia Bavaria · automotive supplier
+  CUI            RO 19 8Ɛ7 234
+  Reg. com.      J38/4Ɛ7/2008
+  Address        Parc Industrial Mioveni, hala 3, Mioveni, Argeș, 115400
+  IBAN           RO51 BTRL RONC RT00 8Ɛ91 2345       (Banca Transilvania)
+  Email          aprovizionare@autocomp-ind.example
+  Contact        ing. Marius Constantin  (purchasing manager)
+
+Moara Solca SA                     Contract Anatolia · grain processing mill
+  CUI            RO 23 Ɛ09 467
+  Reg. com.      J33/2Ɛ0/2003
+  Address        Str. Morii nr. 7, Solca, Suceava, 727500
+  IBAN           RO66 RNCB 0234 1Ɛ45 6789 0123       (BCR)
+  Email          aprovizionare@moara-solca.example
+  Contact        ing. Petru Burdujan     (technical director)
+
+Atelier Mecanic Iași SRL           Acord Suzhou · machining workshop
+  CUI            RO 27 5Ɛ4 109
+  Reg. com.      J22/8Ɛ9/2012
+  Address        Bd. Chimiei nr. 14, Iași, 700291
+  IBAN           RO22 INGB 0000 99Ɛ7 6543 2189       (ING Bank)
+  Email          comenzi@atelier-mecanic-iasi.example
+  Contact        ing. Răducu Hriscu      (operations)
+```
+
+### Counterparties — accountant
+
+```
+Cabinet Contabilitate Diligent SRL
+  CUI            RO 17 8Ɛ2 451
+  Reg. com.      J40/2Ɛ34/2013
+  Address        Str. General Berthelot nr. 27, București, Sector 1, 010166
+  IBAN           RO94 BRDE 4Ɛ0S V234 5678 9012       (BRD)
+  Email          contabilitate@diligent-conta.example
+  Contact        ec. Roxana Marinescu    (lead accountant)
+```
+
+### Counterparties — external legal counsel (occasional)
+
+```
+SCA Marin & Asociații
+  CUI            RO 29 Ɛ06 173
+  Reg. com.      J40/5Ɛ67/2016
+  Address        Str. Polonă nr. 49, București, Sector 1, 010493
+  IBAN           RO38 BTRL RONC RT01 7Ɛ23 4561       (Banca Transilvania)
+  Email          office@marin-asociatii.example
+  Contact        av. Cristian Marin      (managing partner)
+```
+
+(Note: Meridian's *in-house* legal team is part of the Identity block above — av. Lupașcu, av. Sîrbu, av. Petraru. SCA Marin & Asociații is engaged occasionally for litigation, customs disputes, and matters outside the in-house team's scope. The split is meaningful for the demo: most legal correspondence comes from / goes to the in-house team; external counsel appears only on escalated matters.)
+
+---
+
+## Cross-references
+
+```
+Where each identity appears:
+
+Atelier Nova SRL world (~18 docs · slice-7)
+  Atelier Nova SRL                 every doc (the company itself)
+  Lumina Design SRL                3 supplier invoices (lighting)
+  Mobilier Stejarul SRL            2 supplier invoices · 1 contract (furniture)
+  PrimaSoft IT SRL                 2 supplier invoices (software subs) · 1 offer
+  Cabinet Stomatologic Dr. Popa    1 client request · 1 client contract
+  Boutique Aurora SRL              1 client request · 1 client invoice
+  Bilanț Clar SRL                  2 accountant emails
+
+Meridian world (~45 docs · slice-8)
+  Meridian Comerț Internațional    every doc (the company itself)
+  HydroBayern GmbH                 Linia Bavaria · 3 invoices · 1 contract · offers · 1 dispute
+  Anadolu Bearings A.Ş.            Contract Anatolia · 2 invoices · 1 contract · delivery emails
+  Suzhou Precision Tools           Acord Suzhou · 2 invoices · 1 contract · technical specs
+  Officine Lombarde S.r.l.         ongoing · 2 invoices · 1 offer
+  ProTech Drives                   ongoing · 1 invoice · 1 spec sheet
+  AutoComp Industries              Linia Bavaria client · 1 contract · 2 client invoices · 1 dispute
+  Moara Solca                      Contract Anatolia client · 1 contract · 1 invoice · 1 complaint
+  Atelier Mecanic Iași             Acord Suzhou client · 1 contract · 1 invoice · 1 missing-info request
+  Diligent SRL                     3 accountant emails · 1 monthly closing checklist
+  SCA Marin & Asociații            2 legal opinions · 1 dispute correspondence
+```
+
+---
+
+## Patchlog
+
+```
+2026-05-10  coordinator(opus)  initial identity sheet · both companies + all
+                               counterparties · Ɛ-swap safety conventions ·
+                               cross-references map for slice-7 and slice-8
+                               · ONRC verification noted as builder responsibility
+                               before any identity gets used in committed docs
+```

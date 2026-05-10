@@ -23,12 +23,39 @@ Every UI affordance reinforces this. Never bypass. Never auto-send.
 
 ---
 
+## Naming
+
+```
+public name           NovAI Desk
+                      product name shown to visitors · marketing copy · About page
+                      tagline candidate: "AI that knows your company and helps
+                      you navigate the incoming chaos and demand"
+internal name         Business Companion AI · BCA · cs-baic
+                      repo · code · backend · ops codons · technical docs
+domain (public)       novaidesk.csmcl.space
+codename (Meridian)   Urban Novel Desk · internal handle for the Ask My Company
+                      demo world · visitor never sees this name
+```
+
+---
+
 ## Data
 
 ```
-synthetic only             no real CUI · IBAN · names · addresses · companies
-canonical demo company     Atelier Nova SRL  (Pitești · 12 employees)
-no parallel demo companies invented mid-stream
+synthetic only            no real CUI · IBAN · names · addresses · companies
+canonical demo companies  Atelier Nova SRL                      Inbox demo
+                          Meridian Comerț Internațional SRL     Ask My Company
+                          (codename: Urban Novel Desk)
+canonical identity file   ops/companies.synthetic.hybrid
+                          single source of truth for both companies + all
+                          counterparties (suppliers · clients · accountants ·
+                          legal counsel) · do not invent identities outside it
+synthetic ID safety       Ɛ (U+0190) replaces digits in CUI · CNP · J-number ·
+                          IBAN · phone numbers · reads as 3 to a human · is a
+                          letter to any validator
+                          .example TLD for all email domains (RFC 2606)
+                          ONRC verification before any new identity gets used
+                          in committed demo docs
 ```
 
 ---
@@ -109,4 +136,10 @@ Reference: `romanian_sme_ai_companion_project_control_pack.md` §23.2 (MVP bound
 
 ```
 2026-05-05  coordinator(opus)  extracted from CLAUDE.md + blueprint + gtm-pack · anchored
+2026-05-10  coordinator(opus)  Naming section added: public NovAI Desk · internal BCA ·
+                               domain novaidesk.csmcl.space · Data section expanded
+                               for two demo companies + identity file reference +
+                               Ɛ-swap safety conventions · Atelier Nova location/size
+                               corrected to match ops/companies.synthetic.hybrid
+                               (București · ~8 people)
 ```
