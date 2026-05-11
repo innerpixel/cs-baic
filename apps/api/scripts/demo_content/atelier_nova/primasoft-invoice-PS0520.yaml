@@ -1,0 +1,15 @@
+template: invoice
+category: supplier_invoice
+filename: primasoft-invoice-PS0520.pdf
+date: "2026-05-01"
+company_id: primasoft
+issuer_id: primasoft
+client_id: atelier_nova
+invoice_no: "PS-0520"
+issue_date: "01.05.2026"
+due_date: "15.05.2026"
+line_items:
+  - description: "Licență ArchiCAD 27 — abonament anual (1 stație)"
+    qty: 1
+    unit_price: 2400.00
+notes: "Abonament reînnoit automat conform contractului PS/AN-2024. Valabil 01.05.2026–30.04.2027. Acces cloud inclus."

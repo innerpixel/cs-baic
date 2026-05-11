@@ -1,0 +1,18 @@
+template: invoice
+category: supplier_invoice
+filename: primasoft-invoice-PS0534.pdf
+date: "2026-05-09"
+company_id: primasoft
+issuer_id: primasoft
+client_id: atelier_nova
+invoice_no: "PS-0534"
+issue_date: "09.05.2026"
+due_date: "23.05.2026"
+line_items:
+  - description: "Abonament ProjectFlow Pro — management proiecte (6 utilizatori)"
+    qty: 6
+    unit_price: 55.00
+  - description: "Modulul integrare documente (add-on anual)"
+    qty: 1
+    unit_price: 480.00
+notes: "Facturare lunară · luna mai 2026. Contul de acces manager: andrei@ateliernova.example"

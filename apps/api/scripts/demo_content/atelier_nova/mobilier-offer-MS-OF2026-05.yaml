@@ -1,0 +1,25 @@
+template: offer
+category: supplier_offer
+filename: mobilier-offer-MS-OF2026-05.pdf
+date: "2026-05-06"
+company_id: mobilier
+offeror_id: mobilier
+recipient_id: atelier_nova
+offer_no: "MS-OF-2026-05"
+issue_date: "06.05.2026"
+valid_until: "31.05.2026"
+delivery_days: 21
+line_items:
+  - description: "Dulap arhivă cu uși glisante, stejar fumuriu, 200×100×45cm"
+    qty: 2
+    unit_price: 2100.00
+  - description: "Corp TV suspendat cu compartiment deschis, model coordonat"
+    qty: 1
+    unit_price: 1450.00
+  - description: "Personalizare gravată logo (opțional, la comandă)"
+    qty: 1
+    unit_price: 280.00
+notes: >
+  Linie nouă — Colecție Contract 2026. Finisaje disponibile: stejar natural, stejar fumuriu,
+  nuc închis. Mostrele sunt disponibile la showroom-ul nostru din Pipirig sau prin curier (gratuit).
+  Prețurile sunt fără TVA și includ transport în România.

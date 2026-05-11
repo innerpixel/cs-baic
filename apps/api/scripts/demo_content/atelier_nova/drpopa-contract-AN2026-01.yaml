@@ -1,0 +1,44 @@
+template: contract
+category: contract
+filename: drpopa-contract-AN2026-01.pdf
+date: "2026-04-02"
+company_id: atelier_nova
+party_a_id: atelier_nova
+party_b_id: drpopa
+contract_no: "AN-2026/01"
+issue_date: "02.04.2026"
+valid_until: "31.10.2026"
+preamble: >
+  Prezentul contract de prestări servicii de arhitectură și design interior se încheie
+  în data de 02.04.2026 între părțile menționate, în baza Legii nr. 184/2001 privind
+  organizarea și exercitarea profesiei de arhitect și a Codului Civil român.
+party_a_representative: "arh. Maria Ionescu, Administrator"
+party_b_representative: "dr. Alina Popa, Administrator"
+articles:
+  - title: "Obiectul contractului"
+    paragraphs:
+      - "Prestatorul se obligă să furnizeze servicii de proiectare arhitecturală și design interior
+         pentru renovarea și reamenajarea cabinetului stomatologic al beneficiarului, situat la
+         adresa: Str. Maria Rosetti nr. 22, București, Sector 2."
+      - "Serviciile includ: concept de design, planuri tehnice, specificații de materiale,
+         supraveghere execuție pe durata lucrărilor (maxim 10 vizite de șantier)."
+  - title: "Onorariu și modalitate de plată"
+    paragraphs:
+      - "Onorariul total convenit este de 9.500 RON + TVA, achitat în trei tranșe:
+         30% la semnarea contractului, 40% la predarea documentației tehnice complete,
+         30% la finalizarea lucrărilor."
+  - title: "Durata prestării și termene"
+    paragraphs:
+      - "Documentația de concept se predă în 21 de zile de la semnare.
+         Documentația tehnică completă — în maxim 45 de zile de la aprobare concept."
+      - "Durata totală a contractului este de 6 luni, cu posibilitate de prelungire prin act adițional."
+  - title: "Obligațiile beneficiarului"
+    paragraphs:
+      - "Beneficiarul se obligă să furnizeze măsurătorile spațiului, autorizațiile necesare,
+         accesul la locație pentru vizite de șantier și să ia deciziile de aprobare în maxim
+         5 zile lucrătoare de la primirea variantelor de proiect."
+  - title: "Proprietatea intelectuală"
+    paragraphs:
+      - "Planurile și documentele de proiect rămân proprietatea prestatorului până la achitarea
+         integrală a onorariului. La plata finală, beneficiarul primește licența neexclusivă
+         de utilizare a documentației pentru locația specificată."

@@ -1,0 +1,22 @@
+template: offer
+category: supplier_offer
+filename: primasoft-offer-PS-OF2026-08.pdf
+date: "2026-04-18"
+company_id: primasoft
+offeror_id: primasoft
+recipient_id: atelier_nova
+offer_no: "PS-OF-2026-08"
+issue_date: "18.04.2026"
+valid_until: "30.04.2026"
+delivery_days: 1
+line_items:
+  - description: "ArchiCAD 27 — abonament anual reînnoit (1 stație activă)"
+    qty: 1
+    unit_price: 2400.00
+  - description: "Modulul BIM Collaboration — acces cloud (opțional, inclus în această ofertă)"
+    qty: 1
+    unit_price: 360.00
+notes: >
+  Oferta include upgrade gratuit la ArchiCAD 27.1 la lansare (planificată Q3 2026).
+  Reducere de reînnoire 10% aplicată față de prețul de listă. Valabilă exclusiv pentru
+  contractele existente.

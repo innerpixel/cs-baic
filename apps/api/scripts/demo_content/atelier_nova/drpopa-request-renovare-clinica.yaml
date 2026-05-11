@@ -1,0 +1,35 @@
+template: email_letter
+category: client_request
+filename: drpopa-request-renovare-clinica.pdf
+date: "2026-03-28"
+company_id: drpopa
+sender_id: drpopa
+recipient_id: atelier_nova
+ref_no: "DP-2026/02"
+salutation: "Stimată doamnă arh. Ionescu,"
+subject: "Solicitare proiect renovare cabinet stomatologic"
+signature_name: "dr. Alina Popa"
+signature_title: "Administrator — Cabinet Stomatologic Dr. Popa SRL"
+paragraphs:
+  - >
+    Vă contactez în urma recomandării primite de la un coleg care a lucrat cu echipa
+    dumneavoastră la amenajarea unui cabinet medical în Sectorul 2. Am ajuns la concluzia
+    că este momentul să renovăm și să modernizăm spațiul cabinetului nostru, care nu a mai
+    beneficiat de o reamenajare completă din 2019.
+  - >
+    Spațiul are o suprafață de aproximativ 85 mp și cuprinde: sala de așteptare (20 mp),
+    două cabinete de tratament (20 mp fiecare), sterilizare și depozit. Ne dorim o
+    atmosferă mai calmă și mai modernă, cu materiale ușor de igienizat și o circulație
+    mai funcțională între zone.
+  - >
+    Bugetul orientativ estimat este de 40.000–55.000 RON pentru lucrările de construcție
+    și finisaje, separat de onorariul de proiectare. Lucrările le dorim finalizate
+    înainte de 1 septembrie 2026, dacă este posibil.
+items:
+  - "Concept de design + planuri tehnice complete"
+  - "Specificații materiale și ghid achiziție"
+  - "Supraveghere execuție (vizite de șantier)"
+closing_note: >
+  Vă rog să îmi confirmați disponibilitatea pentru o întâlnire preliminară la cabinet,
+  preferabil în săptămâna 7–11 aprilie. Vă stau la dispoziție la numărul de telefon
+  din antet pentru programare.

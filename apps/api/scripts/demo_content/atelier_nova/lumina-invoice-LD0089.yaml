@@ -1,0 +1,21 @@
+template: invoice
+category: supplier_invoice
+filename: lumina-invoice-LD0089.pdf
+date: "2026-05-10"
+company_id: lumina
+issuer_id: lumina
+client_id: atelier_nova
+invoice_no: "LD-0089"
+issue_date: "10.05.2026"
+due_date: "24.05.2026"
+line_items:
+  - description: "Sistem control DALI pentru iluminat dimabil, complet"
+    qty: 1
+    unit_price: 3650.00
+  - description: "Senzori de prezență PIR pentru 4 zone"
+    qty: 4
+    unit_price: 210.00
+  - description: "Programare și punere în funcțiune (4h)"
+    qty: 4
+    unit_price: 180.00
+notes: "Garanție sistem DALI: 24 luni. Intervenție tehnică inclusă în primele 6 luni."

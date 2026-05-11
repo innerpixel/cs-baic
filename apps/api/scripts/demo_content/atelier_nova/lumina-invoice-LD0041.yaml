@@ -1,0 +1,18 @@
+template: invoice
+category: supplier_invoice
+filename: lumina-invoice-LD0041.pdf
+date: "2026-04-28"
+company_id: lumina
+issuer_id: lumina
+client_id: atelier_nova
+invoice_no: "LD-0041"
+issue_date: "28.04.2026"
+due_date: "12.05.2026"
+line_items:
+  - description: "Panouri LED decorative model Aurora, 12 buc"
+    qty: 12
+    unit_price: 185.00
+  - description: "Cablu alimentare și accesorii montaj, 1 set"
+    qty: 1
+    unit_price: 340.00
+notes: "Mențiune: Comanda internă nu este trecută pe factură. Plata se efectuează în cont indicat."

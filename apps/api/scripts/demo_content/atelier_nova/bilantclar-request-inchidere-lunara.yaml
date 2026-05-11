@@ -1,0 +1,29 @@
+template: email_letter
+category: accountant_request
+filename: bilantclar-request-inchidere-lunara.pdf
+date: "2026-04-06"
+company_id: bilantclar
+sender_id: bilantclar
+recipient_id: atelier_nova
+ref_no: "BC-2026/03"
+salutation: "Bună ziua, doamnă Ionescu,"
+subject: "Checklist închidere contabilă — martie 2026"
+signature_name: "ec. Daniela Andrei"
+signature_title: "Expert contabil — Cabinet Contabilitate Bilanț Clar SRL"
+paragraphs:
+  - >
+    Luna martie 2026 este în curs de închidere. Am finalizat înregistrarea tuturor
+    documentelor primite până vineri. Vă transmit mai jos situația curentă și punctele
+    care necesită confirmarea sau acțiunea dumneavoastră.
+  - >
+    Situație generală: înregistrate 34 documente (facturi, extrase, chitanțe).
+    Cheltuieli deductibile: 41.280 RON. TVA de recuperat din această lună: 7.843,20 RON.
+    Sold casă confirmat: 1.240 RON (conform registru casă trimis pe 2 aprilie).
+items:
+  - "Factura Lumina LD-0041 — data scadenței 12 mai, nu a apărut plata → confirmați dacă e achitată sau planificată"
+  - "Contractul Dr. Popa semnat de ambele părți — aveți copia cu semnătura beneficiarului?"
+  - "Decizia de majorare onorariu pentru proiectul Aurora — necesară pentru corecta contabilizare a tranșei 2"
+  - "Bon fiscal transport Mobilier Stejarul din 30.03.2026 — fără TVA menționat, verificați cu furnizorul"
+closing_note: >
+  Raportul complet pentru luna martie urmează la sfârșitul săptămânii. Dacă aveți
+  întrebări sau observații, suntem disponibili zilnic între 09:00 și 17:00.

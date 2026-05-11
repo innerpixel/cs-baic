@@ -1,0 +1,30 @@
+template: email_letter
+category: accountant_request
+filename: bilantclar-request-documente-april.pdf
+date: "2026-05-04"
+company_id: bilantclar
+sender_id: bilantclar
+recipient_id: atelier_nova
+ref_no: "BC-2026/04"
+salutation: "Bună ziua, doamnă Ionescu,"
+subject: "Documente necesare — închidere aprilie 2026"
+signature_name: "ec. Daniela Andrei"
+signature_title: "Expert contabil — Cabinet Contabilitate Bilanț Clar SRL"
+paragraphs:
+  - >
+    Vă contactez pentru a vă ruga să ne transmiteți documentele aferente lunii aprilie 2026,
+    necesare pentru închiderea contabilă. Termenul pentru depunerea declarațiilor este
+    25 mai 2026, deci avem nevoie de documente până pe 12 mai cel târziu.
+  - >
+    Din verificarea bazei noastre de date, am identificat câteva documente care lipsesc
+    sau sunt incomplete. Vă rog să verificați și să ne transmiteți documentele de mai jos:
+items:
+  - "Extrasele bancare complete pentru luna aprilie (toate conturile active)"
+  - "Facturile de la Lumina Design SRL — în sistemul nostru apare plata, dar nu și factura"
+  - "Chitanța/bonul fiscal pentru achiziția de consumabile din 14.04.2026 (suma: 340 RON)"
+  - "Contractul de prestări servicii semnat cu Boutique Aurora SRL (avem copia nesemnată)"
+  - "Deciziile de aprobare internă pentru cheltuielile de protocol din trimestrul I"
+closing_note: >
+  Vă rog să trimiteți documentele scanate la adresa documentele@bilantclar.example.
+  Dacă există dificultăți în obținerea vreunui document, contactați-mă direct ca să
+  găsim o soluție alternativă de evidențiere. Mulțumesc anticipat.

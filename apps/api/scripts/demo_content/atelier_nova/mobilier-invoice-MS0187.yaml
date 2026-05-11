@@ -1,0 +1,18 @@
+template: invoice
+category: supplier_invoice
+filename: mobilier-invoice-MS0187.pdf
+date: "2026-04-30"
+company_id: mobilier
+issuer_id: mobilier
+client_id: atelier_nova
+invoice_no: "MS-0187"
+issue_date: "30.04.2026"
+due_date: "14.05.2026"
+line_items:
+  - description: "Rafturi personalizate model Industrial Slim, 4 module"
+    qty: 4
+    unit_price: 720.00
+  - description: "Montaj și fixare la locație (inclusiv deplasare)"
+    qty: 1
+    unit_price: 280.00
+notes: "Produs conform specificațiilor tehnice din comanda AN-2026/MS-004. Nuanță stejar natur, ulei cerat mat."

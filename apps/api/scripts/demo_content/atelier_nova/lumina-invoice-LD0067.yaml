@@ -1,0 +1,21 @@
+template: invoice
+category: supplier_invoice
+filename: lumina-invoice-LD0067.pdf
+date: "2026-05-05"
+company_id: lumina
+issuer_id: lumina
+client_id: atelier_nova
+invoice_no: "LD-0067"
+issue_date: "05.05.2026"
+due_date: "19.05.2026"
+line_items:
+  - description: "Spoturi orientabile GU10 bronz antic, 24 buc"
+    qty: 24
+    unit_price: 48.50
+  - description: "Transformatoare LED 12V 60W, 8 buc"
+    qty: 8
+    unit_price: 94.00
+  - description: "Transport și asigurare colet"
+    qty: 1
+    unit_price: 85.00
+notes: "Termen de livrare respectat conform comenzii CN-2026-134. Restul comenzii urmează în tranșa a doua."

@@ -1,0 +1,20 @@
+template: invoice
+category: client_invoice
+filename: aurora-invoice-AN2026-002.pdf
+date: "2026-05-07"
+company_id: atelier_nova
+issuer_id: atelier_nova
+client_id: aurora
+invoice_no: "AN-2026/002"
+issue_date: "07.05.2026"
+due_date: "21.05.2026"
+line_items:
+  - description: "Proiect design interior — tranșa 2 (concept aprobat + planuri tehnice vitrine)"
+    qty: 1
+    unit_price: 3800.00
+  - description: "Vizite de coordonare șantier (4 vizite × 350 RON)"
+    qty: 4
+    unit_price: 350.00
+notes: >
+  Tranșa 2 din contractul AN-2026/BA-01. Documentația tehnică predată la data de 30.04.2026,
+  confirmată prin email. Tranșa 3 (recepție finală) urmează după finalizarea execuției.

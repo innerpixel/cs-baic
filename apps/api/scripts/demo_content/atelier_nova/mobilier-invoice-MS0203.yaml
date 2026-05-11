@@ -1,0 +1,21 @@
+template: invoice
+category: supplier_invoice
+filename: mobilier-invoice-MS0203.pdf
+date: "2026-05-08"
+company_id: mobilier
+issuer_id: mobilier
+client_id: atelier_nova
+invoice_no: "MS-0203"
+issue_date: "08.05.2026"
+due_date: "22.05.2026"
+line_items:
+  - description: "Birou L-shape stejar masiv, suprafață 220×160cm"
+    qty: 1
+    unit_price: 4200.00
+  - description: "Casetier suspendat cu 3 sertare, model coordonat"
+    qty: 1
+    unit_price: 1650.00
+  - description: "Transport cu echipă specializată, 200km"
+    qty: 1
+    unit_price: 350.00
+notes: "Avans 50% achitat la comandă (bon nr. 0112/2026). Sold rămas conform prezentei facturi."

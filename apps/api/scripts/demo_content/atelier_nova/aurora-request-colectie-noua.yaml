@@ -1,0 +1,29 @@
+template: email_letter
+category: client_request
+filename: aurora-request-colectie-noua.pdf
+date: "2026-05-02"
+company_id: aurora
+sender_id: aurora
+recipient_id: atelier_nova
+ref_no: "BA-2026/07"
+salutation: "Dragă Maria,"
+subject: "Reamenajare vitrine și spațiu expunere colecție toamnă-iarnă 2026"
+signature_name: "Diana Mihăescu"
+signature_title: "Fondator — Boutique Aurora SRL"
+paragraphs:
+  - >
+    Sper că ești bine! Îți scriu pentru că se apropie perioada de pregătire pentru
+    noua colecție toamnă-iarnă și am vrea să facem câteva schimbări mai mari de data aceasta
+    — nu doar vitrinele, ci și zona interioară de expunere principală.
+  - >
+    Gândul nostru este să creăm o atmosferă mai editorială, mai puțin de „magazin" și
+    mai aproape de un showroom de modă. Am văzut câteva referințe pe care le pot trimite,
+    dacă ajută. Spațiul are cam 110 mp în total, dar ne concentrăm pe zona de intrare
+    și pe peretele principal de prezentare (aproximativ 45 mp utilizabili efectiv).
+  - >
+    Termenul la care lucrăm este 15 august — vrem să fim gata înainte de fashion week-ul
+    local de la sfârșitul lunii august. Știu că e puțin strâns, dar dacă documentația e
+    gata până la 1 iulie, echipa de execuție poate lucra în august.
+closing_note: >
+  Poți face o estimare de onorariu pentru etapa de concept + detalii tehnice vitrine?
+  Prefer să știu înainte de ședința cu partenera mea de săptămâna viitoare. Mulțumesc!

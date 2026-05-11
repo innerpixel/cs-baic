@@ -107,6 +107,15 @@ Boutique Aurora SRL                     small fashion boutique
   Phone          +40 7Ɛ8 901 234
   Email          office@boutique-aurora.example
   Contact        Diana Mihăescu          (founder)
+
+Restaurant Piața Veche SRL              small restaurant · dining & events space design
+  CUI            RO 26 Ɛ13 447
+  Reg. com.      J40/7Ɛ56/2016
+  Address        Str. Lipscani nr. 33, București, Sector 3, 030033
+  Phone          +40 7Ɛ6 789 012
+  Email          contact@piataveche.example
+  Contact        Mihai Florescu          (owner)
+  Note           Added slice-7 as filler client_request prospect · ONRC verified not matching real entity
 ```
 
 ### Counterparties — accountant
@@ -258,7 +267,8 @@ Atelier Nova SRL world (~18 docs · slice-7)
   PrimaSoft IT SRL                 2 supplier invoices (software subs) · 1 offer
   Cabinet Stomatologic Dr. Popa    1 client request · 1 client contract
   Boutique Aurora SRL              1 client request · 1 client invoice
-  Bilanț Clar SRL                  2 accountant emails
+  Restaurant Piața Veche SRL       1 client request (filler · prospect)
+  Bilanț Clar SRL                  2 accountant emails + 1 year-end TVA request (filler)
 
 Meridian world (~45 docs · slice-8)
   Meridian Comerț Internațional    every doc (the company itself)

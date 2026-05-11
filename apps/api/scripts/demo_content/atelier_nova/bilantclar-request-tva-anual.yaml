@@ -1,0 +1,31 @@
+template: email_letter
+category: accountant_request
+filename: bilantclar-request-tva-anual.pdf
+date: "2026-05-09"
+company_id: bilantclar
+sender_id: bilantclar
+recipient_id: atelier_nova
+ref_no: "BC-2026/05"
+salutation: "Bună ziua, doamnă Ionescu,"
+subject: "Pregătire declarație anuală TVA — informații necesare"
+signature_name: "ec. Daniela Andrei"
+signature_title: "Expert contabil — Cabinet Contabilitate Bilanț Clar SRL"
+paragraphs:
+  - >
+    Vă contactez în legătură cu pregătirea documentației necesare pentru declarația anuală
+    TVA aferentă anului 2025, cu termen de depunere pe 25 mai 2026. Pentru a putea finaliza
+    declarația în timp util, avem nevoie de câteva confirmări din partea dumneavoastră.
+  - >
+    Pe baza datelor din sistemul nostru, cifra de afaceri TVA pentru 2025 este de
+    287.430 RON (fără TVA). TVA colectat: 54.611,70 RON. TVA deductibil declarat: 41.280 RON.
+    Diferență de plată estimată: 13.331,70 RON — suma va fi recalculată după primirea
+    documentelor de mai jos.
+items:
+  - "Confirmarea că nu există operațiuni intracomunitare neincluse în declarațiile lunare"
+  - "Lista proiectelor cu factură emisă în 2025 dar livrare/recepție în 2026 (dacă există)"
+  - "Avansurile primite la finele anului 2025 și situația facturării lor în 2026"
+  - "Eventuale achiziții de active fixe amortizabile (calculator, echipament) în 2025"
+closing_note: >
+  Termenul pentru primirea informațiilor de mai sus este 16 mai 2026. Dacă termenul
+  este prea scurt sau dacă aveți nelămuriri privind oricare dintre puncte, vă rugăm
+  să ne contactați cât mai curând pentru a evalua posibilitatea de amânare cu justificare.

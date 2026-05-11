@@ -1,0 +1,31 @@
+template: email_letter
+category: client_request
+filename: piataveche-request-renovare.pdf
+date: "2026-05-08"
+company_id: piataaveche
+sender_id: piataaveche
+recipient_id: atelier_nova
+ref_no: ~
+salutation: "Bună ziua,"
+subject: "Solicitare ofertă design interior restaurant — renovare completă"
+signature_name: "Mihai Florescu"
+signature_title: "Administrator — Restaurant Piața Veche SRL"
+paragraphs:
+  - >
+    Am dat de biroul dumneavoastră pe Google și mi-a atras atenția că ați mai lucrat pentru
+    spații comerciale și HoReCa. Vreau să renovăm restaurantul nostru din Lipscani — avem
+    120 de locuri în interior și 40 pe terasă, și nu s-a mai făcut nimic structural din
+    2018. Acum e momentul.
+  - >
+    Ne dorim un concept mai clar, care să se lege mai bine de zona istorică în care suntem
+    situați, fără să devenim un muzeu sau un kitsch turistic. Combinat tradițional-contemporan,
+    materiale naturale, lumini mai bune. Terasa o lăsăm pentru o a doua etapă.
+  - >
+    Nu știm exact ce buget să alocăm pentru proiectare — de asta am vrea mai întâi o discuție
+    preliminară și o ofertă orientativă. Lucrările le vrem executate în intervalul septembrie–
+    noiembrie 2026, cât e extrasezonul.
+items:
+  - "Concept de design și mood board"
+  - "Planuri tehnice zone interior (sală principală, bar, acces)"
+  - "Specificații mobilier, iluminat, finisaje"
+  - "Coordonare cu echipa de execuție"

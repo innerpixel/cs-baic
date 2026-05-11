@@ -1,0 +1,42 @@
+template: contract
+category: contract
+filename: mobilier-contract-MS2026-03.pdf
+date: "2026-03-15"
+company_id: mobilier
+party_a_id: mobilier
+party_b_id: atelier_nova
+contract_no: "MS-2026/03"
+issue_date: "15.03.2026"
+valid_until: "31.12.2026"
+preamble: >
+  Prezentul contract de furnizare se încheie astăzi, 15.03.2026, între părțile de mai jos,
+  în conformitate cu prevederile Codului Civil român și ale legislației aplicabile în materie
+  de achiziții comerciale.
+party_a_representative: "Vasile Mureșan, Director General"
+party_b_representative: "arh. Maria Ionescu, Administrator"
+articles:
+  - title: "Obiectul contractului"
+    paragraphs:
+      - "Furnizorul se obligă să producă și să livreze mobilier personalizat din lemn masiv
+         conform specificațiilor tehnice agreate prin schimbul de email din data de 10.03.2026,
+         anexat prezentului contract ca Anexa 1."
+  - title: "Prețul și modalitățile de plată"
+    paragraphs:
+      - "Valoarea totală estimată a contractului este de 28.000 RON + TVA (19%),
+         distribuită pe comenzi individuale cu facturare separată."
+      - "Plata fiecărei facturi se efectuează în 14 zile calendaristice de la data emiterii,
+         prin transfer bancar în contul furnizorului indicat pe factură."
+  - title: "Termenele de livrare"
+    paragraphs:
+      - "Termenul de livrare pentru fiecare comandă se stabilește individual la momentul
+         confirmării comenzii, dar nu va depăși 30 de zile lucrătoare."
+      - "Întârzierile cauzate de beneficiar (modificări de specificații, acces restricționat
+         la locație) nu sunt imputabile furnizorului."
+  - title: "Garanție și reclamații"
+    paragraphs:
+      - "Produsele sunt garantate 24 de luni de la data livrării. Eventualele defecte
+         de fabricație se remediază gratuit în termenul de garanție."
+  - title: "Reziliere"
+    paragraphs:
+      - "Oricare dintre părți poate rezilia contractul cu notificare scrisă de 15 zile,
+         fără penalități, cu condiția achitării tuturor obligațiilor scadente."
