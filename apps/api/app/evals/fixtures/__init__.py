@@ -1,4 +1,4 @@
-"""Eval fixtures from §23.3 of the project control pack.
+"""Eval fixtures — base set from §23.3 + slice-7 PDF fixtures.
 
 Each fixture has:
   input_text: str
@@ -8,6 +8,8 @@ Each fixture has:
 Expected outputs define which keys to check and their expected values.
 None values mean "must be present and non-null" but any value is acceptable.
 """
+
+from app.evals.fixtures.atelier_nova_pdfs import FIXTURES_NOVA_PDFS
 
 FIXTURES: dict[str, dict] = {
     "invoice_lumina": {
@@ -106,7 +108,7 @@ Radu Enache""",
         "expected": {
             "summarizer": {
                 "short_summary_contains": ["apartment", "apartament", "Bucharest", "București", "78"],
-                "urgency_not_critical": True,  # should be low or medium, not high
+                "urgency_not_critical": True,
             },
             "classifier": {
                 "document_type": "client_request",
@@ -161,7 +163,6 @@ Oricare parte poate denunța contractul cu notificare scrisă transmisă cu 30 d
 }
 
 # ── Draft Reply fixture ───────────────────────────────────────────────────────
-# Evaluated via draft_reply_generator analyzer (requires DB / pgvector).
 
 FIXTURES["client_apartament_draft"] = {
     "input_text": """\
@@ -191,11 +192,10 @@ Radu Enache""",
     },
 }
 
+# Merge PDF-sourced fixtures (slice-7 Atelier Nova set)
+FIXTURES.update(FIXTURES_NOVA_PDFS)
+
 # ── Ask My Company fixtures ───────────────────────────────────────────────────
-# Evaluated via answer_question() service (requires DB / pgvector).
-# Each fixture: query · expected_keywords (any-match) · expected_source_filenames
-#               (set of basenames that must appear in source_documents) ·
-#               no_docs_expected (True → answer should say "not found" + sources empty)
 
 ASK_FIXTURES: dict[str, dict] = {
     "ask_invoices_urgent": {
