@@ -1,9 +1,12 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { api, type ApiDocumentDetail, type ApiDocumentItem } from '$lib/api/client.js';
+	import { page } from '$app/stores';
+	import { api, pdfUrl, type ApiDocumentDetail, type ApiDocumentItem } from '$lib/api/client.js';
 	import ClassifierBadge from '$lib/components/ClassifierBadge.svelte';
 	import ContractTermsPanel from '$lib/components/ContractTermsPanel.svelte';
 	import DraftReplyPanel from '$lib/components/DraftReplyPanel.svelte';
+	import PdfViewer from '$lib/components/PdfViewer.svelte';
+	import ReviewActions from '$lib/components/ReviewActions.svelte';
 
 	// ── State ────────────────────────────────────────────────────────────────
 
@@ -18,15 +21,12 @@
 	// upload form
 	let uploadFile = $state<File | null>(null);
 	let dragOver = $state(false);
-	let pasteFallbackOpen = $state(false);
-	let uploadText = $state('');
-	let uploadFilename = $state('');
 	let uploading = $state(false);
 	let uploadError = $state<string | null>(null);
 	let fileInputEl = $state<HTMLInputElement | null>(null);
 
-	// local approval overlay (mirrors API state, refreshed on re-fetch)
-	let localApproved = $state<Set<string>>(new Set());
+	// PDF tab state
+	let showPdf = $state(false);
 
 	const DOC_TYPES = [
 		{ value: 'supplier_invoice', label: 'Supplier Invoice' },
@@ -83,6 +83,7 @@
 			if (prefix === 'analyzed_by') return `AI analysis · ${suffixLabel}`;
 			if (prefix === 'analysis_failed') return `Analysis failed · ${suffixLabel}`;
 			if (prefix === 'pipeline_failed') return `Pipeline error · ${suffixLabel}`;
+			if (prefix === 'review_state_changed') return `Review state changed · ${suffix.replace('→', ' → ')}`;
 		}
 		return event_type.replace(/_/g, ' ').replace(/:/g, ' · ');
 	}
@@ -126,7 +127,11 @@
 		try {
 			docs = await api.listDocuments();
 			loadError = null;
-			if (!selectedId && docs.length > 0) {
+			// check for ?focus= param
+			const focusId = $page.url.searchParams.get('focus');
+			if (focusId && docs.some((d) => d.id === focusId)) {
+				await selectDoc(focusId);
+			} else if (!selectedId && docs.length > 0) {
 				await selectDoc(docs[0].id);
 			}
 		} catch (e) {
@@ -138,6 +143,7 @@
 
 	async function selectDoc(id: string) {
 		selectedId = id;
+		showPdf = false;
 		detailLoading = true;
 		try {
 			selected = await api.getDocument(id);
@@ -173,39 +179,49 @@
 
 	async function handleUpload(e: Event) {
 		e.preventDefault();
-		const canSubmit = uploadFile != null || (pasteFallbackOpen && uploadText.trim());
-		if (!canSubmit) return;
+		if (!uploadFile) return;
 		uploading = true;
 		uploadError = null;
 		try {
-			const input = uploadFile
-				? { file: uploadFile }
-				: { text: uploadText, filename: uploadFilename.trim() || `pasted_${Date.now()}.txt` };
-			const result = await api.uploadDocument(input);
-
-			const displayName = uploadFile ? uploadFile.name : (uploadFilename.trim() || 'pasted.txt');
+			const displayName = uploadFile.name;
+			const result = await api.uploadFile(uploadFile);
 			uploadFile = null;
-			uploadText = '';
-			uploadFilename = '';
-			pasteFallbackOpen = false;
 			if (fileInputEl) fileInputEl.value = '';
 
-			docs = [
-				{
-					id: result.id,
-					filename: displayName,
-					type: 'unknown',
-					status: result.status === 'not_supported_yet' ? 'not_supported_yet' : 'queued',
-					created_at: new Date().toISOString()
-				},
-				...docs
-			];
-			await selectDoc(result.id);
-			if (result.status !== 'not_supported_yet') pollDoc(result.id);
+			if (result.batch) {
+				// ZIP: reload list to show all ingested docs
+				await loadList();
+			} else {
+				docs = [
+					{
+						id: result.id,
+						filename: displayName ?? result.id,
+						type: 'unknown',
+						source: 'public',
+						review_state: 'pending',
+						status: 'queued',
+						created_at: new Date().toISOString()
+					},
+					...docs
+				];
+				await selectDoc(result.id);
+				pollDoc(result.id);
+			}
 		} catch (e) {
 			uploadError = String(e);
 		} finally {
 			uploading = false;
+		}
+	}
+
+	async function handleReview(state: string, note?: string) {
+		if (!selected) return;
+		try {
+			const result = await api.reviewState(selected.id, state, note);
+			selected = { ...selected, review_state: result.review_state, review_note: result.review_note };
+			docs = docs.map((d) => d.id === selected!.id ? { ...d, review_state: result.review_state } : d);
+		} catch (e) {
+			console.error('Review state update failed:', e);
 		}
 	}
 
@@ -222,18 +238,6 @@
 			// ignore transient errors during polling
 		}
 		pollDoc(id, attempts + 1);
-	}
-
-	async function approveDoc(id: string) {
-		try {
-			await api.approveDocument(id);
-			localApproved = new Set([...localApproved, id]);
-			if (selectedId === id) {
-				selected = await api.getDocument(id);
-			}
-		} catch (e) {
-			console.error('Approve failed:', e);
-		}
 	}
 
 	onMount(loadList);
@@ -267,7 +271,7 @@
 			<input
 				bind:this={fileInputEl}
 				type="file"
-				accept=".pdf,.txt,application/pdf,text/plain"
+				accept=".pdf,.zip,application/pdf,application/zip"
 				onchange={onFileChange}
 				style="display: none;"
 			/>
@@ -289,47 +293,23 @@
 					</div>
 				{:else}
 					<div style="font-size: 12px; color: var(--color-text-muted); line-height: 1.6;">
-						Drop a PDF or text file<br />
-						<span style="font-size: 11px;">or click to browse</span>
+						Drop a PDF or ZIP<br />
+						<span style="font-size: 11px;">or click to browse · max 5 MB PDF / 10 MB ZIP</span>
 					</div>
 				{/if}
 			</div>
 
-			<!-- Paste fallback -->
-			<button
-				type="button"
-				onclick={() => (pasteFallbackOpen = !pasteFallbackOpen)}
-				style="background: none; border: none; padding: 0; font-size: 11px; color: var(--color-text-muted); cursor: pointer; text-align: left; text-decoration: underline;"
-			>
-				{pasteFallbackOpen ? 'Hide paste option' : 'Or paste text…'}
-			</button>
-			{#if pasteFallbackOpen}
-				<textarea
-					bind:value={uploadText}
-					placeholder="Paste document text here…"
-					rows={4}
-					style="width: 100%; background: var(--color-main); border: 1px solid var(--color-stroke); border-radius: 4px; padding: 8px; font-size: 12px; color: var(--color-text); font-family: inherit; resize: vertical; box-sizing: border-box; outline: none;"
-				></textarea>
-				<input
-					bind:value={uploadFilename}
-					placeholder="filename.txt (optional)"
-					style="background: var(--color-main); border: 1px solid var(--color-stroke); border-radius: 4px; padding: 7px 8px; font-size: 12px; color: var(--color-text); outline: none; font-family: monospace;"
-				/>
-			{/if}
-
 			<button
 				type="submit"
-				disabled={uploading || (!uploadFile && !(pasteFallbackOpen && uploadText.trim()))}
-				style="background: var(--color-action); color: var(--color-text); border: 1px solid var(--color-stroke-light); padding: 8px; border-radius: 4px; font-size: 12px; cursor: pointer; font-weight: 500; opacity: {uploading ? 0.6 : 1};"
+				disabled={uploading || !uploadFile}
+				style="background: var(--color-action); color: var(--color-text); border: 1px solid var(--color-stroke-light); padding: 8px; border-radius: 4px; font-size: 12px; cursor: pointer; font-weight: 500; opacity: {uploading || !uploadFile ? 0.5 : 1};"
 			>
-				{uploading ? 'Uploading…' : 'Submit'}
+				{uploading ? 'Uploading…' : 'Upload'}
 			</button>
 
 			{#if uploadError}
 				<div style="font-size: 11px; color: var(--color-urgency-high); line-height: 1.4;">
-					{uploadError.includes('not_supported_yet')
-						? 'Could not extract text — likely an image-only PDF.'
-						: uploadError}
+					{uploadError}
 				</div>
 			{/if}
 		</form>
@@ -371,8 +351,13 @@
 					<div style="font-size: 12px; color: var(--color-stroke-light); margin-bottom: 4px; font-family: monospace; word-break: break-all; line-height: 1.3;">
 						{doc.filename}
 					</div>
-					<div style="display: flex; gap: 8px; align-items: center;">
+					<div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
 						<span style="font-size: 12px; color: {statusColor(doc.status)};">{doc.status}</span>
+						{#if doc.review_state && doc.review_state !== 'pending'}
+							<span style="font-size: 10px; padding: 1px 5px; border-radius: 2px; font-weight: 600; background: var(--color-data); border: 1px solid var(--color-stroke); color: {doc.review_state === 'approved' ? 'var(--color-urgency-low)' : doc.review_state === 'rejected' ? 'var(--color-urgency-high)' : '#d97706'};">
+								{doc.review_state}
+							</span>
+						{/if}
 					</div>
 				</button>
 			{/each}
@@ -423,6 +408,29 @@
 				{selected.filename}
 			</div>
 		</div>
+
+		<!-- PDF Viewer (when available) -->
+		{#if selected.pdf_path}
+			<div style="margin-bottom: 16px;">
+				<div style="display: flex; gap: 0; margin-bottom: 8px; border-bottom: 1px solid var(--color-stroke);">
+					<button
+						onclick={() => showPdf = false}
+						style="background: none; border: none; border-bottom: 2px solid {!showPdf ? 'var(--color-stroke-light)' : 'transparent'}; color: {!showPdf ? 'var(--color-text)' : 'var(--color-text-muted)'}; font-size: 12px; padding: 6px 14px; cursor: pointer; font-family: inherit;"
+					>
+						AI Extraction
+					</button>
+					<button
+						onclick={() => showPdf = true}
+						style="background: none; border: none; border-bottom: 2px solid {showPdf ? 'var(--color-stroke-light)' : 'transparent'}; color: {showPdf ? 'var(--color-text)' : 'var(--color-text-muted)'}; font-size: 12px; padding: 6px 14px; cursor: pointer; font-family: inherit;"
+					>
+						Source PDF
+					</button>
+				</div>
+				{#if showPdf}
+					<PdfViewer pdfUrl={pdfUrl(selected.id)} />
+				{/if}
+			</div>
+		{/if}
 
 		<!-- Analysis (when available) -->
 		{#if selected.status === 'queued' || selected.status === 'processing'}
@@ -521,23 +529,22 @@
 			</section>
 		{/if}
 
-		<!-- Human Approval -->
+		<!-- Human Review -->
 		{#if selected}
-			{@const isApproved = localApproved.has(selected.id) || selected.audit_events.some((e) => e.event_type === 'approved')}
 			<section style="background: var(--color-main); border: 1px solid var(--color-stroke); border-radius: 8px; padding: 16px 20px; margin-bottom: 16px;">
-				<div style="font-size: 11px; color: var(--color-text-muted); letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 12px;">Human Approval</div>
+				<div style="font-size: 11px; color: var(--color-text-muted); letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 12px;">Human Review</div>
 				<p style="font-size: 13px; color: var(--color-text-muted); margin: 0 0 14px; line-height: 1.5;">
 					AI has prepared the analysis above. Review it and decide the next step.
 				</p>
-				<div style="display: flex; gap: 10px; flex-wrap: wrap;">
-					<button
-						onclick={() => approveDoc(selected!.id)}
-						disabled={isApproved}
-						style="background: {isApproved ? 'var(--color-urgency-low)' : 'var(--color-action)'}; color: var(--color-text); border: 1px solid var(--color-stroke-light); padding: 9px 20px; border-radius: 5px; font-size: 13px; cursor: {isApproved ? 'default' : 'pointer'}; font-weight: 500;"
-					>
-						{isApproved ? '✓ Approved' : 'Approve'}
-					</button>
-				</div>
+				<ReviewActions
+					currentState={selected.review_state}
+					onReview={handleReview}
+				/>
+				{#if selected.review_note}
+					<div style="margin-top: 10px; font-size: 12px; color: var(--color-text-muted); background: var(--color-data); border: 1px solid var(--color-stroke); border-radius: 4px; padding: 8px 10px; line-height: 1.5;">
+						Note: {selected.review_note}
+					</div>
+				{/if}
 			</section>
 		{/if}
 

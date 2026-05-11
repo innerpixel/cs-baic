@@ -32,6 +32,17 @@ def _format_context(hits) -> str:
     return "\n\n---\n\n".join(parts)
 
 
+def _enrich_sources(sources: list, filename_to_id: dict[str, str]) -> list:
+    """Replace filename strings with {doc_id, filename} dicts when ID is known."""
+    enriched = []
+    for src in sources:
+        if isinstance(src, str) and src in filename_to_id:
+            enriched.append({"doc_id": filename_to_id[src], "filename": src})
+        else:
+            enriched.append(src)
+    return enriched
+
+
 def answer_question(query: str, db: Session) -> AskAnswer:
     """Embed query → top-K retrieval → LLM call → parse AskAnswer → save PromptRun."""
     prompt_template = _load_prompt()
@@ -39,6 +50,9 @@ def answer_question(query: str, db: Session) -> AskAnswer:
     query_embedding = embed(query)
     hits = top_k(db, query_embedding, k=5)
     context = _format_context(hits)
+
+    # Build a filename → doc_id map from retrieved hits for source linking
+    filename_to_id: dict[str, str] = {h.filename: str(h.document_id) for h in hits}
 
     prompt = (
         prompt_template
@@ -57,6 +71,9 @@ def answer_question(query: str, db: Session) -> AskAnswer:
             confidence="low",
             requires_human_review=True,
         )
+
+    # Enrich sources with doc IDs for deep-linking
+    answer.source_documents = _enrich_sources(answer.source_documents, filename_to_id)
 
     status = "success"
     error_msg = None

@@ -1,11 +1,13 @@
 <script lang="ts">
 	import { EXAMPLE_QUESTIONS } from '$lib/data/qa.js';
-	import { askQuestion, type AskAnswer } from '$lib/api/ask.js';
+	import { askQuestion, sourceLabel, sourceHref, type AskAnswer } from '$lib/api/ask.js';
+
+	import type { SourceDoc } from '$lib/api/ask.js';
 
 	interface Message {
 		role: 'user' | 'assistant';
 		text: string;
-		sources?: string[];
+		sources?: (string | SourceDoc)[];
 		loading?: boolean;
 		error?: boolean;
 	}
@@ -40,7 +42,7 @@
 				{
 					role: 'assistant',
 					text: result.answer,
-					sources: result.source_documents.filter((s) => typeof s === 'string') as string[]
+					sources: result.source_documents
 				}
 			];
 		} catch (err) {
@@ -169,10 +171,10 @@
 							<div style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; padding-left: 2px;">
 								{#each msg.sources as src}
 									<a
-										href="/app/inbox"
+										href={sourceHref(src)}
 										style="font-size: 11px; font-family: monospace; background: var(--color-data); border: 1px solid var(--color-stroke); border-radius: 3px; padding: 2px 8px; color: var(--color-text-muted); text-decoration: none; white-space: nowrap;"
 									>
-										{src}
+										{sourceLabel(src)}
 									</a>
 								{/each}
 							</div>
