@@ -1,0 +1,579 @@
+---
+id: slice-7.novai-desk-inbox-demo
+type: build-slice
+domain: bca.frontend + bca.backend + bca.demo-content
+agreement: bca.build-roadmap
+state: forming
+density: L2.5
+---
+
+# Slice 7 · NovAI Desk · Atelier Nova Inbox Demo
+
+*PDF authoring (weasyprint) · embedded viewer · public site IA (RO) + About page · download-and-upload-back loop · ~18 authored PDFs across 6 classifier categories · existing 8 docs become dev_source bootstrap*
+
+---
+
+## Why
+
+Slice-5 made Inbox + Ask + Draft real, but the live demo still runs on 8 text-pasted "documents" that were authored as raw strings and have never resembled what a Romanian SME actually receives. To convince a visiting SME owner that NovAI Desk understands their world, the demo must look like their world: PDFs on letterhead, in Romanian, with believable VAT IDs and IBANs, from suppliers and clients with plausible names.
+
+Slice-7 closes that gap for one company. It builds:
+
+- A **PDF authoring pipeline** (weasyprint + Jinja2 templates) seeded by the canonical identities in `ops/companies.synthetic.hybrid`.
+- **~18 authored Atelier Nova PDFs** across 6 classifier categories — the public-facing demo corpus.
+- An **embedded PDF viewer** in `/app/inbox` document detail so the visitor can see the rendered original alongside the AI's extraction.
+- The **public site** at `novaidesk.csmcl.space` — homepage + About + revamped `/demo` — in Romanian, calm tone, no over-claiming.
+- An **upload-back loop**: the About page offers a "Try it with our sample company" ZIP download (the 18 Atelier Nova PDFs). The visitor re-uploads to `/app/inbox` and watches the same pipeline they just downloaded from process the same docs live. Demo becomes a closed loop, not a stage set.
+- **Public upload boundary**: PDF + ZIP only · caps 5 MB PDF / 10 MB ZIP / 20 PDFs per ZIP · drop text-upload from public UI (keep internal endpoint behind a flag for evals).
+- **Needs-review** as a third approval state alongside Approve / Reject.
+
+Slice-7 also reclassifies the 8 existing slice-2/5 mock docs as **`dev_source`** — kept in tree as eval bootstrap + regression fixtures, never surfaced to a visitor. Demo data is now exclusively the 18 authored PDFs.
+
+This is the slice that lets us put `novaidesk.csmcl.space` in front of a real SME owner and not flinch.
+
+---
+
+## Scope
+
+```
+IN     PDF authoring pipeline    apps/api/app/services/pdf_renderer.py · weasyprint wrapper
+                                   render(template_name, context) → PDF bytes
+                                   templates: apps/api/app/pdf_templates/*.html (Jinja2 + CSS) ·
+                                              ~5-7 visual templates (invoice · contract · offer ·
+                                              email-letter · price-list-row · plain-letter) · share
+                                              base.html with letterhead block · use the palette from
+                                              rules.constraints (calm dark-gray on white paper)
+
+       demo content definitions  apps/api/scripts/demo_content/atelier_nova/*.yaml
+                                   one YAML per doc · references identities from
+                                   ops/companies.synthetic.hybrid by short id (e.g., supplier=lumina) ·
+                                   includes filename, template, category (classifier label),
+                                   meta (date · invoice_no · etc) · Romanian body text
+
+       generator script          apps/api/scripts/generate_demo_pdfs.py
+                                   reads YAMLs · renders PDFs into apps/api/var/demo_pdfs/atelier_nova/
+                                   (runtime dir · gitignored) · idempotent (overwrite OK) ·
+                                   prints summary table: filename → category → bytes
+
+       seed integration          scripts/seed_demo.py · NEW mode: --company atelier-nova
+                                   runs generate_demo_pdfs first, then ingests each generated PDF
+                                   through the existing upload path (so the real pdfplumber +
+                                   analyzer chain processes them — same as a real upload would)
+                                   replaces the current 8-text-doc seed for the public /app/inbox
+
+       18 authored PDFs          15 from companies.synthetic cross-reference map (locked):
+                                   3 Lumina supplier_invoice · 2 Mobilier supplier_invoice ·
+                                   2 PrimaSoft supplier_invoice · 1 Mobilier contract ·
+                                   1 PrimaSoft supplier_offer · 1 Dr.Popa client_request ·
+                                   1 Dr.Popa client contract · 1 Aurora client_request ·
+                                   1 Aurora client_invoice · 2 Bilanț Clar accountant_request
+                                   + 3 to round out 6 categories evenly: builder authors
+                                   1 additional supplier_offer · 1 additional client_request ·
+                                   1 additional accountant_request (identities from companies.synthetic;
+                                   if a new counterparty is needed, add it there first)
+                                   all in Romanian · all using Ɛ-swap safety in CUI/IBAN/phone
+
+       PDF + ZIP upload backend  apps/api/app/api/uploads.py
+                                   POST /api/uploads accepts multipart with content-type
+                                   application/pdf OR application/zip
+                                   PDF: max 5 MB · parsed via pdfplumber (existing)
+                                   ZIP: max 10 MB · extracted in-memory · max 20 PDFs per ZIP ·
+                                        each PDF must be ≤ 5 MB · each enqueued as its own Document
+                                        with batch_id metadata so the inbox can group them
+                                   reject text/plain at this endpoint in production
+                                   internal text-upload endpoint moves to /api/_internal/uploads
+                                   gated by env flag ENABLE_INTERNAL_TEXT_UPLOAD (default true in dev,
+                                   false in production-style envs) · used by evals + seed only
+
+       upload-back ZIP download  apps/api/app/api/demo.py
+                                   GET /api/demo/atelier-nova/archive.zip
+                                   streams a fresh ZIP of all 18 generated PDFs · cached briefly ·
+                                   filename: atelier-nova-archive.zip
+                                   public site About + /demo CTA: "Descarcă arhiva demo"
+                                   no auth (single-tenant install · public on demo deploy)
+
+       embedded PDF viewer       apps/web/src/lib/components/PdfViewer.svelte
+                                   <object data={pdfUrl} type="application/pdf"> with fallback link
+                                   for browsers that block inline PDFs
+                                   pdfUrl resolves to /api/documents/<id>/pdf
+                                   NEW endpoint GET /api/documents/{id}/pdf streams the stored
+                                   PDF bytes (added at upload time → app/storage/<doc_id>.pdf)
+                                   /app/inbox doc detail: tab or split view "Source PDF" alongside
+                                   "AI extraction" · text-only docs (dev_source) hide the tab
+
+       /app/ask source linking   apps/web/src/routes/app/ask/+page.svelte
+                                   source pills become clickable · navigate to
+                                   /app/inbox?focus=<doc_id> · /app/inbox reads ?focus and opens
+                                   that document's detail panel on mount
+
+       needs-review action       apps/api/app/api/documents.py
+                                   PATCH /api/documents/{id}/review_state
+                                     { state: "approved" | "rejected" | "needs_review", note?: string }
+                                   schema: Document.review_state column (default "pending") ·
+                                           Document.review_note nullable string ·
+                                           AuditEvent recorded on each transition
+                                   alembic migration adds the two columns
+                                   /app/inbox detail: three buttons (Approve · Mark needs review · Reject)
+                                   list view: small badge showing current state · filter chip optional
+
+       site IA + Romanian copy   apps/web/src/routes/+page.svelte                  homepage (RO)
+                                 apps/web/src/routes/about/+page.svelte            About (RO) [NEW]
+                                 apps/web/src/routes/demo/+page.svelte             /demo refresh (RO)
+                                 apps/web/src/routes/+layout.svelte                public nav (RO):
+                                                                                    Acasă · Despre · Demo · Aplicație
+                                 /app/* stays English (per amended rules.constraints Language section)
+                                 copy tone: calm · concrete · no transformation/revolutionary language ·
+                                 reference codocz/romanian_sme_ai_companion_promotion_go_to_market_pack.md
+                                 §4 (don't-say) and §5 (do-say) ·
+                                 hero: "AI care îți cunoaște compania și te ajută să gestionezi
+                                       cererile și informațiile care îți intră zilnic în inbox"
+                                 About: who built it · for whom · what it does · what it does NOT do
+                                       (no autonomous send · no ANAF integration · no fine-tuning) ·
+                                       link to companies.synthetic disclosure that demo data is synthetic
+                                 Demo: short walk-through of the loop + CTA "Descarcă arhiva demo"
+                                       (the upload-back ZIP) + "Deschide aplicația" (→ /app/inbox)
+
+       dev_source reclassification
+                                 apps/api/app/models/document.py · add Document.source nullable
+                                   enum {"public", "dev_source"} (default "public")
+                                 the 8 existing seed docs: mark source="dev_source" if seed runs
+                                   in --include-dev-source mode
+                                 default public /app/inbox query filters out source="dev_source"
+                                 internal "all docs" view (added via ?include_dev=1 query param)
+                                   shows them — used by eval + debug
+                                 eval harness keeps the 8 docs as regression fixtures regardless
+
+       README + run notes        update CLAUDE.md §Common operations:
+                                   - generate demo PDFs: uv run python scripts/generate_demo_pdfs.py
+                                   - seed Atelier Nova world: uv run python scripts/seed_demo.py --company atelier-nova
+                                   - new endpoints summary
+                                 README: short "what slice-7 changed" note (optional · skip if README
+                                   is already neglected) · or add to /about page disclosure
+
+OUT    Meridian / Urban Novel Desk corpus     slice-8
+       Ask My Company guided experience       slice-9 (suggested questions · archive banner · etc.)
+       VPS deployment + HTTPS + nginx         slice-6 (after slice-9)
+       Auth · login · multi-tenant            never (single-tenant per install · post-MVP if ever)
+       i18n switcher on public site           later if needed · slice-7 ships RO-only public site
+       /app/* in Romanian                     deferred · operational UI stays EN until pilot ask
+       Real letterhead images / logos         use typographic letterhead in templates · skip raster logos
+                                              (avoids fake-brand questions · keeps repo light)
+       Send button                            ever
+       OCR                                    still deferred · awaits pilot demand
+       Auth-gated demo download               public download is intentional — visitor needs it
+                                              to complete the upload-back loop without friction
+```
+
+---
+
+## Acceptance
+
+```
+pdf authoring    uv run python scripts/generate_demo_pdfs.py
+                   → 18 PDF files appear in apps/api/var/demo_pdfs/atelier_nova/
+                   → each ≤ 5 MB · each renders Romanian text correctly (no mojibake) ·
+                     Ɛ characters render visibly · letterhead block present on every doc
+                   → distribution across categories: 7 supplier_invoice · 2 contract ·
+                     2 supplier_offer · 3 client_request · 1 client_invoice · 3 accountant_request
+                     (exact counts may shift ±1 if builder finds a cleaner mapping; record in patchlog)
+
+seed             alembic downgrade base && alembic upgrade head &&
+                 uv run python scripts/seed_demo.py --company atelier-nova
+                   → 18 Document rows · all status="done" · all source="public"
+                   → each has stored PDF bytes accessible at GET /api/documents/{id}/pdf
+                   → each has classifier output matching the YAML's declared category
+                     (allow 1-2 mismatches if LLM disagrees and the call is defensible —
+                      record in patchlog as "classifier disagreement: <filename> declared=X got=Y")
+                   → each has ≥1 chunk row (DocumentIndexer ran cleanly)
+                   → re-run with --include-dev-source adds the 8 dev_source docs as well
+                     (so eval fixtures still pass)
+
+upload backend   curl -F "file=@small.pdf" /api/uploads → 200 · doc created
+                 curl -F "file=@huge.pdf"  /api/uploads → 413 · clean error message
+                 curl -F "file=@batch.zip" /api/uploads → 200 · N docs created · shared batch_id
+                 curl -F "file=@too-many.zip" (21 PDFs) /api/uploads → 400 · clean error
+                 curl -F "file=@empty.txt"  /api/uploads → 415 (text/plain rejected at public endpoint)
+                 internal endpoint /api/_internal/uploads still accepts text (used by seed)
+
+upload-back loop GET /api/demo/atelier-nova/archive.zip → 200 · application/zip · 18 PDFs inside ·
+                   total uncompressed ≤ 10 MB
+                 manual: download from /about CTA · upload via /app/inbox drop zone · watch the
+                 18 docs land · all process to status="done" within 2 minutes · all 6 categories
+                 represented in the resulting list view
+
+embedded viewer  /app/inbox detail panel for any PDF-backed doc renders an embedded view of the
+                 original PDF · fallback "Open PDF" link works in browsers that block <object>
+                 dev_source text-only docs show only the AI-extraction view (no PDF tab)
+                 source pills in /app/ask are clickable → navigate to /app/inbox?focus=<id> →
+                 inbox opens that doc's detail
+
+review states    PATCH /api/documents/{id}/review_state with each of approved/rejected/needs_review
+                   → 200 · column updated · AuditEvent appended with old→new transition
+                 UI: three buttons in detail panel · current state shown as a small badge in list view
+                 default state on new uploads: "pending"
+
+site IA (RO)     visit / → Romanian homepage · hero present · CTA chain to /demo
+                 visit /about → Romanian About page · 4-section structure:
+                   cine suntem · pentru cine · ce face · ce NU face
+                   includes synthetic-data disclosure · links to GitHub repo
+                 visit /demo → Romanian walk-through · two CTAs visible:
+                   "Descarcă arhiva demo" → archive.zip · "Deschide aplicația" → /app/inbox
+                 public nav links: Acasă · Despre · Demo · Aplicație (last one → /app/inbox)
+                 /app/* nav and copy unchanged (English) · no language switcher on public site
+
+tone check       no instances of "revolutionary" "transform" "next-generation" "empower" "AI-powered
+                 innovation" in any Romanian or English copy added this slice ·
+                 read the RO copy aloud · should sound like a thoughtful colleague, not a brochure
+
+evals            uv run python -m app.evals.run
+                   → slice-3/4/5 fixtures all pass at previous thresholds (regression check) ·
+                     contract_reviewer 10/10 · ask_questions ≥80% citation correctness ·
+                     draft_reply 7+ · invoice_extractor intentional-fail still fails
+                   → new fixture set added for at least 3 of the 18 Atelier Nova PDFs:
+                     1 supplier_invoice (extraction accuracy) · 1 contract (review terms) ·
+                     1 client_request (draft reply quality) · all pass
+
+build            cd apps/web && npm run check → 0 errors
+                 cd apps/web && npm run build → 0 errors · routes /, /about, /demo, /app/inbox
+                   all in the output
+                 cd apps/api && uv run python -m pytest (if tests exist) → green
+```
+
+---
+
+## Constraints inherited
+
+See `ops/rules.constraints.hybrid` (anchored · amended 2026-05-11 for public-site Romanian carve-out). Slice-7 specific reinforcements:
+
+- All identities used in PDFs come from `ops/companies.synthetic.hybrid`. If a new counterparty is needed for the 3 filler docs, add it to that file FIRST (with ONRC check) and reference from there. Do not invent identities inline in YAMLs or templates.
+- All synthetic IDs in rendered PDFs preserve the Ɛ-swap (CUI · IBAN · phone · J-number). The Ɛ is a real letter and must render — verify in at least one rendered PDF that it appears as a recognizable open-E glyph, not a tofu box.
+- Romanian site copy obeys §Tone (calm · concrete · trustworthy) and §Don't-say from the GTM pack. The English app UI is unchanged.
+- Public-site upload restriction (PDF + ZIP only, caps as stated) is load-bearing for the demo's trust story. The internal text endpoint is permitted only behind the env flag for evals/seed.
+- No Send button. No auto-send. No autonomous email anything. (Trust principle.)
+- No new provider SDKs imported outside `app/services/llm.py` and `app/services/embeddings.py`. PDF rendering is a synchronous in-process operation — weasyprint runs inside the API venv, no external service.
+- Prompt hygiene: no new runtime prompts are introduced in slice-7. (Existing prompts are reused as-is.)
+
+---
+
+## Resolved decisions (coordinator)
+
+```
+public site language        Romanian for /, /about, /demo · /app/* stays English
+                            (rules.constraints amended 2026-05-11 · carve-out for RO SME audience)
+
+upload-back loop shape      single ZIP download of all 18 PDFs · visitor re-uploads to /app/inbox
+                            (rejected: pre-seeded inbox · per-doc Try-this buttons · auth-gated download)
+                            rationale: dogfoods the upload path · shows "AI prepares" in motion
+
+slice size                  single builder session · all 7 buckets in one slice
+                            (rejected: 7a/7b split · adds coordinator overhead for limited risk reduction)
+
+PDF authoring               weasyprint + Jinja2 (Bar B, settled 2026-05-10)
+                            ~5-7 visual templates · letterhead via typography · no raster logos
+
+demo content storage        YAML definitions committed · generated PDFs gitignored ·
+                            regenerated by `python scripts/generate_demo_pdfs.py`
+                            archive ZIP served via /api/demo/atelier-nova/archive.zip
+                            (rejected: commit binary PDFs · noisy diffs on regeneration)
+
+dev_source reclassification existing 8 docs marked source="dev_source" · filtered from default
+                            /app/inbox view · still seeded under --include-dev-source flag ·
+                            still used by eval harness (regression fixtures preserved)
+
+needs-review action         third review state alongside approved/rejected · new column
+                            review_state on Document · audit event on each transition
+
+text upload                 dropped from public /api/uploads · moved to /api/_internal/uploads
+                            behind ENABLE_INTERNAL_TEXT_UPLOAD env flag (default true in dev,
+                            false in any production-style env) · used by seed + eval only
+
+PDF size caps               5 MB per PDF · 10 MB per ZIP · 20 PDFs per ZIP
+                            (matches the 2026-05-10 demo polish decision)
+
+site nav (public)           Acasă · Despre · Demo · Aplicație
+                            "Aplicație" links to /app/inbox · no auth gate in MVP
+
+About page structure        cine suntem · pentru cine · ce face · ce NU face
+                            includes synthetic-data disclosure (companies.synthetic) +
+                            GitHub link · sets expectations honestly
+
+filler docs (3 of 18)       1 supplier_offer + 1 client_request + 1 accountant_request
+                            builder authors content · uses existing identities where possible ·
+                            if a new identity is needed: add to companies.synthetic FIRST
+```
+
+---
+
+## Schema additions
+
+```
+Document.source             ENUM("public", "dev_source") NULL DEFAULT "public"
+Document.review_state       ENUM("pending", "approved", "rejected", "needs_review") NULL
+                            DEFAULT "pending"
+Document.review_note        TEXT NULL
+Document.batch_id           UUID NULL (set when uploaded as part of a ZIP batch)
+Document.pdf_path           TEXT NULL (filesystem path to stored PDF bytes ·
+                            populated on PDF upload · null for legacy text-only docs)
+
+new audit event types       review_state_changed:<old>→<new>
+                            upload_zip_batch:<batch_id>:<count>
+                            pdf_too_large · zip_too_large · zip_too_many_pdfs (rejections)
+```
+
+Alembic migration: `slice-7 dev_source · review_state · batch_id · pdf_path`.
+
+---
+
+## Files to be created
+
+```
+apps/api/app/pdf_templates/base.html                      shared letterhead + palette
+apps/api/app/pdf_templates/invoice.html                   supplier_invoice + client_invoice
+apps/api/app/pdf_templates/contract.html                  contract
+apps/api/app/pdf_templates/offer.html                     supplier_offer
+apps/api/app/pdf_templates/email_letter.html              client_request + accountant_request
+apps/api/app/pdf_templates/styles.css                     shared CSS · imported by base.html
+apps/api/app/services/pdf_renderer.py                     weasyprint wrapper · render(name, ctx) → bytes
+apps/api/app/services/upload_intake.py                    PDF/ZIP validation + extraction
+apps/api/app/api/uploads.py                               POST /api/uploads (refactor for PDF+ZIP)
+apps/api/app/api/_internal/uploads.py                     internal text upload (env-flag gated)
+apps/api/app/api/demo.py                                  GET /api/demo/atelier-nova/archive.zip
+apps/api/app/api/documents.py                             PATCH /api/documents/{id}/review_state ·
+                                                          GET /api/documents/{id}/pdf
+apps/api/scripts/demo_content/atelier_nova/*.yaml         18 YAML doc definitions
+apps/api/scripts/generate_demo_pdfs.py                    regenerate runtime PDFs
+apps/api/scripts/seed_demo.py                             extended: --company · --include-dev-source
+apps/api/alembic/versions/<n>_slice7_uploads_review.py    schema migration
+apps/api/app/evals/fixtures/atelier_nova_pdfs.py          3 new regression fixtures
+apps/web/src/lib/components/PdfViewer.svelte              embedded <object> viewer w/ fallback link
+apps/web/src/lib/components/ReviewActions.svelte          approve · needs review · reject buttons
+apps/web/src/lib/api/documents.ts                         review_state PATCH client
+apps/web/src/routes/about/+page.svelte                    Romanian About page (new route)
+apps/web/src/routes/+page.svelte                          homepage · rewrite in RO
+apps/web/src/routes/demo/+page.svelte                     /demo · rewrite in RO + ZIP CTA
+apps/web/src/routes/+layout.svelte                        nav: Acasă · Despre · Demo · Aplicație
+apps/web/src/routes/app/inbox/+page.svelte                handle ?focus=<doc_id> query param
+apps/api/var/demo_pdfs/.gitkeep                           runtime output dir (PDFs gitignored)
+.gitignore                                                add apps/api/var/demo_pdfs/atelier_nova/*.pdf
+```
+
+---
+
+## Builder prompt
+
+Copy this into a fresh IDE session (Sonnet) at `/home/innerpixel/dev/sme-companion`:
+
+```text
+Read in order: CLAUDE.md · ops/project.state.hybrid · ops/rules.constraints.hybrid (esp. amended Language section) · ops/companies.synthetic.hybrid · ops/slice-7.novai-desk-inbox-demo.hybrid · codocz/romanian_sme_ai_companion_promotion_go_to_market_pack.md §4 §5 (tone guardrails).
+
+You are the builder for slice-7. Coordinator (opus) verified slice-5 stable and locked the demo-polish plan with the user. Your job: ship the NovAI Desk inbox demo end-to-end for Atelier Nova SRL.
+
+This is a wide slice (frontend + backend + data + content). Commit at every numbered checkpoint. Stop and report if a step blocks — append a line to §Open edges in the slice codon and commit what you have.
+
+Tasks:
+
+1. SCHEMA MIGRATION (FIRST · everything else depends on it).
+   - alembic revision -m "slice-7 uploads review dev_source pdf"
+   - Hand-edit to add: Document.source ENUM("public","dev_source") default "public" · Document.review_state ENUM("pending","approved","rejected","needs_review") default "pending" · Document.review_note TEXT null · Document.batch_id UUID null · Document.pdf_path TEXT null
+   - Update app/models/document.py to match
+   - alembic upgrade head; verify columns exist
+   Commit: "slice-7(schema): dev_source · review_state · batch_id · pdf_path"
+
+2. PDF AUTHORING PIPELINE.
+   - apps/api/app/pdf_templates/styles.css: dark-gray-on-white palette from rules.constraints · A4 page · Inter or system sans · clear hierarchy · no raster logos · typographic letterhead block
+   - base.html: letterhead block (company name from context · CUI · J-number · IBAN · address · email · phone) + footer (page number · "Document generat: <date>") + {% block body %}
+   - invoice.html (extends base): two-column header (issuer · client) · line items table (description · qty · unit_price · vat · total) · totals box (subtotal · TVA · total) · payment terms footer
+   - contract.html (extends base): preamble · "Părțile contractante" block · numbered articles · signature block at bottom
+   - offer.html (extends base): "Ofertă" header · validity date · itemized scope · price table · "Vă mulțumim" closing
+   - email_letter.html (extends base): plain-letter style · subject line bold · paragraph body · sender signature block
+   - app/services/pdf_renderer.py: `render(template_name: str, context: dict) -> bytes` using weasyprint · pulls templates from app/pdf_templates/ · raises clearly on missing template or context error
+   - pyproject.toml: add weasyprint dependency · uv sync
+   - Manual sanity: render one invoice and one contract template with hand-built contexts · open in a viewer · verify Ɛ renders as a glyph not tofu · verify layout doesn't break
+   Commit: "slice-7(pdf): weasyprint renderer + 4 templates + base + styles"
+
+3. DEMO CONTENT YAMLs.
+   - apps/api/scripts/demo_content/atelier_nova/: write 18 YAMLs · file name = the eventual PDF filename without .pdf
+   - YAML schema:
+       template: invoice | contract | offer | email_letter
+       category: supplier_invoice | client_invoice | contract | supplier_offer | client_request | accountant_request
+       filename: e.g., lumina-invoice-LD0041.pdf
+       date: ISO
+       issuer: short-id from companies.synthetic (atelier_nova | lumina | mobilier | primasoft | drpopa | aurora | bilantclar)
+       counterparty: short-id (the OTHER party)
+       meta: dict of category-specific fields (invoice_no · totals · contract_no · article_count · etc.)
+       body: Romanian text · multi-paragraph if needed
+   - Distribution target (record any deviation in patchlog):
+       supplier_invoice ×7: 3 Lumina (lighting) · 2 Mobilier (furniture) · 2 PrimaSoft (CAD/PM)
+       contract ×2: 1 Mobilier supply · 1 Dr.Popa client renovation
+       supplier_offer ×2: 1 PrimaSoft renewal · 1 Mobilier new line (NEW · the +1 filler)
+       client_request ×3: 1 Dr.Popa renovation request · 1 Aurora new collection · 1 NEW prospect (the +1 filler)
+       client_invoice ×1: 1 Aurora project milestone
+       accountant_request ×3: 2 Bilanț Clar existing-scope + 1 NEW year-end TVA (the +1 filler)
+   - For the 3 NEW filler docs, if you need a new counterparty (prospect), add it to ops/companies.synthetic.hybrid FIRST with ONRC check + Ɛ-swap, then reference it.
+   - All Romanian. All amounts use realistic-but-Ɛ-disrupted figures (e.g., "3 04Ɛ,40 RON" or you may keep amounts as normal digits since they're business numbers not IDs · use Ɛ in CUI/IBAN/phone/J-number only). Decide per readability; classifier prompt rules treat amounts as numeric strings so prefer normal digits in amounts.
+   Commit: "slice-7(content): 18 Atelier Nova doc YAMLs across 6 categories"
+
+4. GENERATOR + SEED INTEGRATION.
+   - apps/api/scripts/generate_demo_pdfs.py: read all YAMLs in demo_content/atelier_nova/ · resolve short-ids against ops/companies.synthetic.hybrid (parse the file or hardcode a small companies.py registry — pick the simpler one and commit the choice) · render PDF for each · write to apps/api/var/demo_pdfs/atelier_nova/<filename> · print summary table
+   - Update .gitignore: ignore apps/api/var/demo_pdfs/**/*.pdf · keep .gitkeep
+   - apps/api/scripts/seed_demo.py refactor:
+       --company atelier-nova (default) · --include-dev-source (optional)
+       atelier-nova mode: runs generate_demo_pdfs first, then for each generated PDF calls the upload intake service directly (same code path as the public endpoint) so the full analyzer chain runs · sets source="public"
+       --include-dev-source: additionally seeds the 8 legacy text docs · sets source="dev_source"
+   - Verify: alembic downgrade base && alembic upgrade head && uv run python scripts/seed_demo.py --company atelier-nova → 18 docs · all status="done" · classifier outputs match YAML category for ≥16/18 (record any disagreements in patchlog)
+   Commit: "slice-7(seed): generator + seed_demo extension · 18 Atelier Nova PDFs seeded clean"
+
+5. PDF + ZIP UPLOAD BACKEND.
+   - apps/api/app/services/upload_intake.py: pure functions
+       validate_pdf(file_bytes, filename) → raises HTTPException on size > 5MB or invalid PDF magic
+       extract_zip(zip_bytes) → list of (filename, pdf_bytes) · raises on size > 10MB · raises on >20 PDFs · raises on any inner PDF > 5MB · raises on non-PDF inner files
+       persist_pdf(doc_id, pdf_bytes) → writes to app/storage/<doc_id>.pdf · returns path
+       ingest_pdf(filename, pdf_bytes, source="public", batch_id=None) → creates Document · persists bytes · runs pdfplumber for raw_text · enqueues analysis (existing BackgroundTask path) · returns Document
+   - apps/api/app/api/uploads.py: refactor POST /api/uploads
+       accept content-type application/pdf OR application/zip (reject text/plain · reject others with 415)
+       PDF path: validate_pdf → ingest_pdf → 200 {document_id, status}
+       ZIP path: extract_zip → batch_id = uuid4() · for each inner PDF: ingest_pdf(..., batch_id=batch_id) → 200 {batch_id, documents: [...]}
+   - apps/api/app/api/_internal/uploads.py: NEW · accepts text/plain · only mounted if env ENABLE_INTERNAL_TEXT_UPLOAD == "true"
+   - Update main.py routing accordingly
+   - Verify with curl all 5 acceptance cases in §Acceptance > upload backend
+   Commit: "slice-7(uploads): PDF+ZIP intake with size/count caps · text moved to internal endpoint"
+
+6. PDF SERVING + EMBEDDED VIEWER.
+   - apps/api/app/api/documents.py: GET /api/documents/{id}/pdf → 200 application/pdf with stored bytes · 404 if no pdf_path · 410 if file missing on disk (with clear error)
+   - apps/web/src/lib/components/PdfViewer.svelte: <object data={pdfUrl} type="application/pdf"> with fallback <a href={pdfUrl} target="_blank">Open PDF</a> for browsers that block inline · accept pdfUrl prop · small loading state
+   - /app/inbox detail view: when document.pdf_path is set, show "Source PDF" tab/panel alongside the AI-extraction view · use PdfViewer component · for source="dev_source" docs (no pdf_path), hide the tab and only show extraction view
+   Commit: "slice-7(viewer): PDF serving endpoint + embedded viewer component + inbox detail tab"
+
+7. REVIEW STATES + AUDIT.
+   - apps/api/app/api/documents.py: PATCH /api/documents/{id}/review_state { state, note? } → validates state in enum · writes column · appends AuditEvent("review_state_changed:<old>→<new>", {note}) · 200 updated document
+   - apps/web/src/lib/components/ReviewActions.svelte: 3 buttons (Approve · Mark needs review · Reject) · disabled state for the currently-active state · note input shown when "Mark needs review" or "Reject" clicked
+   - /app/inbox detail: render ReviewActions · show current review_state as a small badge in the list view (color: gray=pending, green=approved, amber=needs_review, red=rejected · match rules palette)
+   Commit: "slice-7(review): three-state review + audit + UI"
+
+8. UPLOAD-BACK LOOP (ARCHIVE DOWNLOAD).
+   - apps/api/app/api/demo.py: GET /api/demo/atelier-nova/archive.zip
+       reads apps/api/var/demo_pdfs/atelier_nova/*.pdf · streams a ZIP (zipfile.ZipFile in memory) · sets Content-Disposition: attachment; filename=atelier-nova-archive.zip
+       returns 404 if the dir is empty (clear error: "run scripts/generate_demo_pdfs.py first")
+   - apps/web upload component: visible drop zone on /app/inbox (already present from dogfood-1) accepts both PDF and ZIP · client-side hint shown if file > 5MB PDF or > 10MB ZIP · uses /api/uploads
+   Commit: "slice-7(loop): archive.zip download endpoint · upload accepts ZIP"
+
+9. SITE IA + ROMANIAN COPY (public site only).
+   - apps/web/src/routes/+layout.svelte: replace public nav with: Acasă · Despre · Demo · Aplicație → /app/inbox
+       Note: /app/* has its own nested layout — keep that English; this is the OUTER layout for /, /about, /demo
+   - apps/web/src/routes/+page.svelte (homepage): rewrite in Romanian
+       hero: "AI care îți cunoaște compania și te ajută să gestionezi cererile și informațiile care îți intră zilnic în inbox" (or your refined wording in same calm register)
+       3 short value propositions: organizare · răspunsuri · drafturi (mirror the slice-5 product surface)
+       CTA: "Vezi un demo →" → /demo
+   - apps/web/src/routes/about/+page.svelte (NEW): 4 sections
+       "Cine suntem" · "Pentru cine" · "Ce face" · "Ce NU face"
+       Ce NU face: explicit list — nu trimite emailuri automat · nu se integrează cu ANAF/SPV · nu modifică plățile · nu folosește date reale (demo) · nu face fine-tuning
+       Synthetic-data disclosure: "Toate documentele demo sunt sintetice. Companiile, CUI-urile și IBAN-urile sunt special construite să fie nevalidabile (folosesc litera Ɛ în loc de cifra 3)."
+       Link to GitHub repo (https://github.com/innerpixel/cs-baic)
+   - apps/web/src/routes/demo/+page.svelte: rewrite in Romanian
+       short walk-through: ce primești · ce poți face · ce vede AI-ul
+       two CTAs side-by-side:
+         "Descarcă arhiva demo" → /api/demo/atelier-nova/archive.zip
+         "Deschide aplicația" → /app/inbox
+   - TONE CHECK before committing: read aloud each new Romanian block. Strip any of these words/phrases:
+       revoluționar · transformare · următoarea generație · împuternicire · inovație bazată pe AI
+       NovAI este o soluție / platformă (generic SaaS slop) — prefer "NovAI este…ce/cine" specific.
+   Commit: "slice-7(site): RO homepage + About + Demo + public nav · calm tone"
+
+10. SOURCE LINKS + FOCUS PARAM.
+    - apps/web/src/routes/app/ask/+page.svelte: source pills become anchor tags href="/app/inbox?focus=<doc_id>"
+    - apps/web/src/routes/app/inbox/+page.svelte: on mount, read $page.url.searchParams.get("focus") · if set, open that document's detail panel
+    Commit: "slice-7(linking): /app/ask sources clickable · inbox handles ?focus="
+
+11. EVAL FIXTURES (slice-7 additions).
+    - apps/api/app/evals/fixtures/atelier_nova_pdfs.py: 3 new fixtures
+       1 supplier_invoice (e.g., Lumina LD-0041 equivalent): expected supplier_name · invoice_no · total · due_date
+       1 contract (e.g., Dr.Popa renovation): expected contract_type · parties (≥2) · payment_terms (≥1)
+       1 client_request (e.g., new prospect): expected detected_language=ro · reply_body asks for missing info · human_review_required=true
+    - Verify: uv run python -m app.evals.run → all previous fixtures still pass at previous thresholds · 3 new fixtures pass · PO-reference intentional-fail still fails (regression catcher intact)
+    Commit: "slice-7(evals): 3 PDF-backed Atelier Nova fixtures"
+
+12. ACCEPTANCE PASS.
+    - Walk every line of slice-7 §Acceptance · capture pass/fail
+    - Manual end-to-end: generate PDFs · seed atelier-nova · open /app/inbox · see 18 docs · open one · see embedded PDF + AI extraction · approve / needs-review / reject · check audit log
+    - Manual public site: visit / → /demo → "Descarcă arhiva demo" → save the ZIP → upload it via /app/inbox drop zone → watch 18 docs land
+    - Tone check: read all RO copy aloud · strip slop · re-commit if anything regressed
+    - Build check: cd apps/web && npm run check && npm run build
+
+13. SHIP.
+    - Append ONE PATCHLOG line to ops/slice-7.novai-desk-inbox-demo.hybrid (timestamp · model · summary · doc-count actual · classifier agreement rate · eval pass-rate)
+    - Update state in slice-7 frontmatter forming → stable
+    - Append ONE PATCHLOG line to ops/project.state.hybrid · update §Now (current → slice-8) and §Slices (slice-7 → stable)
+    - Update CLAUDE.md §Common operations: generate-demo-pdfs · seed --company atelier-nova · archive.zip endpoint
+    - Final commit: "slice-7: NovAI Desk Atelier Nova demo · 18 authored PDFs · RO site · upload-back loop · state→stable"
+
+Hard rules (do not violate):
+- all identities come from ops/companies.synthetic.hybrid · new counterparties added there FIRST
+- Ɛ-swap preserved in all CUI/IBAN/phone/J-number values in rendered PDFs
+- public site is Romanian · /app/* is English · do NOT translate /app/* in this slice
+- no Send button anywhere · ever · verify in /app/inbox detail and elsewhere
+- public upload endpoint rejects text/plain in production (internal endpoint is the only text path)
+- 5MB PDF cap · 10MB ZIP cap · 20 PDFs per ZIP cap enforced before any storage
+- no raster logos · typographic letterhead only · the demo company doesn't have a real brand and we won't fake one
+- no transformation/revolutionary tone in any new copy · re-read aloud before committing
+
+If task 2 (PDF generation) reveals weasyprint headless / font issues:
+- prefer system fonts (DejaVu, Noto Sans) that ship in most Linux containers
+- if Ɛ doesn't render, fall back to a font that covers Latin Extended-B (DejaVu does) · record the font choice in patchlog
+- do NOT switch to a different PDF renderer mid-slice · note as an open edge if weasyprint fights you and degrade gracefully
+
+If the classifier disagrees with a YAML's declared category for more than 2 of 18 docs:
+- inspect each disagreement · if the doc is genuinely ambiguous, change the YAML to match the LLM (the LLM is the user's view)
+- if the LLM is wrong, leave the YAML as-is and record in patchlog
+- do NOT relax the classifier prompt to make fixtures pass (slice-4 hotfix precedent)
+
+Confirm the plan in 3 lines, then start with task 1.
+```
+
+---
+
+## State
+
+```
+state     forming
+gravity   HIGH (this is the slice that makes NovAI Desk demoable to a real Romanian SME)
+topology  defined → in-progress → shipped
+```
+
+---
+
+## Open edges
+
+```
+- weasyprint font for Ɛ                  task 2 may need DejaVu Sans or Noto · builder records in patchlog
+- classifier vs YAML category disagreements   tolerated up to 2/18 · documented · YAML adjusts to LLM
+                                              if the doc is ambiguous · LLM is wrong otherwise (record both)
+- archive.zip caching                    streamed fresh each request in slice-7 · revisit if traffic warrants
+- /app/inbox ?focus= deep-link           shallow implementation (open panel) · revisit for scroll/anchor polish
+- demo data refresh cadence              YAMLs are committed · PDFs regenerated by script · no auto-rebuild ·
+                                         document the manual rebuild step in CLAUDE.md
+- review_state badge color in dark mode  pick from rules palette · revisit if visual contrast is poor
+- existing 8 dev_source docs in /app/inbox   default filter hides them · /app/ask still indexes them via
+                                              --include-dev-source flag · acceptable for slice-7 ·
+                                              clean cut at slice-9 if confusing
+- Meridian preview from public site      not in scope · slice-8 owns Meridian world · Atelier Nova is the
+                                          only demo company on novaidesk.csmcl.space until slice-8 ships
+```
+
+---
+
+## Patchlog
+
+```
+2026-05-11  coordinator(opus)  forming · slice-7/8/9 plan locked 2026-05-10 · this codon written today
+                               · 3 user judgment calls resolved: public site = Romanian (rules amended) ·
+                               upload-back loop = single ZIP download · single-slice scope (no 7a/7b split)
+                               · 13 commit checkpoints · scope: PDF authoring pipeline (weasyprint) + 18
+                               Atelier Nova PDFs across 6 categories + PDF/ZIP upload backend + embedded
+                               viewer + three-state review + RO public site (homepage + About + Demo +
+                               nav) + upload-back ZIP endpoint + 3 new eval fixtures · 18 = 15 from
+                               companies.synthetic cross-ref + 3 filler docs (supplier_offer +
+                               client_request + accountant_request) · existing 8 docs reclassified
+                               source=dev_source · text upload moved to /api/_internal behind env flag ·
+                               5MB PDF / 10MB ZIP / 20 PDFs per ZIP caps · OCR still deferred · no raster
+                               logos · prompt registry unchanged (no new runtime prompts)
+```

@@ -74,7 +74,14 @@ Reference: `romanian_sme_ai_companion_promotion_go_to_market_pack.md` §4 (don't
 ## Language
 
 ```
-UI copy · README · code     English
+public site copy            Romanian
+                             /, /about, /demo · marketing copy seen by visitors at
+                             novaidesk.csmcl.space · tone applies (calm · concrete) ·
+                             carve-out from default English to match RO SME audience
+app UI copy (/app/*)        English
+                             /app/inbox · /app/ask · the authenticated workspace ·
+                             team-facing operational UI · stays in English (deferred i18n)
+README · code · ops codons  English
 demo documents              Romanian (do not translate)
 example accountant emails   Romanian
 ```
@@ -142,4 +149,7 @@ Reference: `romanian_sme_ai_companion_project_control_pack.md` §23.2 (MVP bound
                                Ɛ-swap safety conventions · Atelier Nova location/size
                                corrected to match ops/companies.synthetic.hybrid
                                (București · ~8 people)
+2026-05-11  coordinator(opus)  Language section split: public site copy (/ /about /demo) =
+                               Romanian (carve-out for RO SME audience) · /app/* UI stays
+                               English · prerequisite for slice-7 site IA + About page work
 ```
