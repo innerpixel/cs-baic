@@ -1,247 +1,287 @@
-"""Generate the 8 Atelier Nova SRL demo documents as PDF files.
+"""Generate Atelier Nova SRL demo PDFs from YAML definitions.
 
-Output: apps/api/scripts/demo_pdfs/
-Run:    uv run --with fpdf2 python scripts/generate_demo_pdfs.py
+Usage:
+    cd apps/api
+    uv run python scripts/generate_demo_pdfs.py
+
+Output: apps/api/var/demo_pdfs/atelier_nova/<filename>
+Idempotent — overwrites existing files.
 """
 from pathlib import Path
-from fpdf import FPDF
+import sys
+import yaml
 
-OUT_DIR = Path(__file__).parent / "demo_pdfs"
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
-DOCUMENTS = [
-    {
-        "filename": "invoice_lumina_design_2026_0041.pdf",
-        "title": "Factura LD nr. 0041 — Lumina Design SRL",
-        "text": """\
-Factura seria LD nr. 0041
-Data emiterii: 28.04.2026
-Furnizor: Lumina Design SRL
-CUI: RO00000001
-Client: Atelier Nova SRL
-CUI Client: RO00000002
+from app.services.pdf_renderer import render
 
-Produse:
-1. Panouri LED decorative model Aurora, 12 buc, 185 RON/buc
-2. Cablu alimentare si accesorii montaj, 1 set, 340 RON
+YAML_DIR = Path(__file__).parent / "demo_content" / "atelier_nova"
+OUT_DIR = Path(__file__).parent.parent / "var" / "demo_pdfs" / "atelier_nova"
 
-Subtotal: 2.560 RON
-TVA: 486,40 RON
-Total de plata: 3.046,40 RON
-Scadenta: 12.05.2026
-IBAN: RO00BANK0000000000000001
-
-Mentiune: Comanda interna nu este trecuta pe factura.""",
+# Canonical identities from ops/companies.synthetic.hybrid — hardcoded registry.
+# Update here if companies.synthetic.hybrid changes an identity.
+COMPANIES = {
+    "atelier_nova": {
+        "name": "Atelier Nova SRL",
+        "activity": "Studio de arhitectură și design interior",
+        "cui": "RO 15 Ɛ45 678",
+        "reg_com": "J40/Ɛ892/2018",
+        "address": "Strada Plopilor nr. 14, București, Sector 1, 010101",
+        "iban": "RO47 BTRL RONC RT01 Ɛ123 4567",
+        "phone": "+40 7Ɛ1 234 567",
+        "email": "contact@ateliernova.example",
+        "representative": "arh. Maria Ionescu",
+        "contact": "Andrei Popescu",
     },
-    {
-        "filename": "invoice_mobila_artisan_2026_0187.pdf",
-        "title": "Factura MA nr. 0187 — Mobila Artisan SRL",
-        "text": """\
-Factura seria MA nr. 0187
-Data emiterii: 30.04.2026
-Furnizor: Mobila Artisan SRL
-CUI: RO00000003
-IBAN: RO00BANK0000000000000003
-Client: Atelier Nova SRL
-CUI Client: RO00000002
-
-Produse si servicii:
-1. Rafturi personalizate model Industrial Slim, 4 module, 720 RON/buc = 2.880 RON
-2. Montaj si fixare la locatie, 1 serviciu = 280 RON
-
-Subtotal: 3.160 RON (TVA inclus 504 RON)
-Total de plata: 3.160,00 RON
-Scadenta: 21.05.2026
-
-Nota: Livrarea a fost confirmata telefonic pe 29.04.2026.
-Procesul-verbal de receptie nu a fost semnat.""",
+    "lumina": {
+        "name": "Lumina Design SRL",
+        "activity": "Sisteme de iluminat decorativ și arhitectural",
+        "cui": "RO 12 Ɛ45 670",
+        "reg_com": "J40/2Ɛ45/2014",
+        "address": "Bd. Theodor Pallady nr. 51, București, Sector 3, 032258",
+        "iban": "RO63 BTRL RONC RT00 Ɛ987 6543",
+        "phone": "+40 7Ɛ2 345 678",
+        "email": "comenzi@luminadesign.example",
+        "representative": "Cristina Voicu",
+        "contact": "Cristina Voicu",
     },
-    {
-        "filename": "invoice_printstudio_2026_0098.pdf",
-        "title": "Factura PS nr. 0098 — PrintStudio Media SRL",
-        "text": """\
-Factura seria PS nr. 0098
-Data emiterii: 25.04.2026
-Furnizor: PrintStudio Media SRL
-CUI: RO00000004
-Client: Atelier Nova SRL
-CUI Client: RO00000002
-
-Produse:
-1. Cataloage produs format A4, 200 exemplare, 2,20 RON/buc = 440 RON
-2. Carti de vizita premium, 500 buc, 0,60 RON/buc = 300 RON
-3. Design grafic si pregatire tiparire, 1 serviciu = 108 RON
-
-Total: 848,00 RON (TVA inclus)
-Mentiune: Factura a fost achitata prin ordin bancar pe 02.05.2026.
-Confirmarea platii nu a fost transmisa contabilului.""",
+    "mobilier": {
+        "name": "Mobilier Stejarul SRL",
+        "activity": "Producție mobilier personalizat din lemn masiv",
+        "cui": "RO 18 7Ɛ4 002",
+        "reg_com": "J22/1Ɛ7/2009",
+        "address": "Str. Gării nr. 42, Pipirig, județul Neamț, 617345",
+        "iban": "RO54 RNCB 0082 Ɛ123 4567 8902",
+        "phone": "+40 7Ɛ3 456 789",
+        "email": "comenzi@mobilier-stejarul.example",
+        "representative": "Vasile Mureșan",
+        "contact": "Vasile Mureșan",
     },
-    {
-        "filename": "invoice_curier_rapid_2026_1142.pdf",
-        "title": "Factura CR nr. 1142 — Curier Rapid Express SRL",
-        "text": """\
-Factura seria CR nr. 1142
-Data emiterii: 30.04.2026
-Furnizor: Curier Rapid Express SRL
-CUI: RO00000005
-Client: Atelier Nova SRL
-CUI Client: RO00000002
-
-Servicii livrare aprilie 2026:
-1. Livrare pachet mobilier mic (01.04.2026) — 85 RON
-2. Livrare mostre materiale textile (10.04.2026) — 95 RON
-3. Livrare comanda client Ionescu (18.04.2026) — 145 RON [DISPUTAT]
-4. Livrare accesorii LED (24.04.2026) — 116 RON
-
-Total: 441,00 RON (TVA inclus)
-Scadenta: 15.05.2026
-
-Nota interna: Clientul Ionescu a reclamat ca pachetul din 18.04 era incomplet.
-Situatia nu este clarificata.""",
+    "primasoft": {
+        "name": "PrimaSoft IT SRL",
+        "activity": "Software profesional · CAD și management de proiecte",
+        "cui": "RO 22 Ɛ09 115",
+        "reg_com": "J40/8Ɛ12/2017",
+        "address": "Str. Buzești nr. 75, București, Sector 1, 011014",
+        "iban": "RO19 INGB 0000 99Ɛ8 7654 3210",
+        "phone": "+40 7Ɛ4 567 890",
+        "email": "billing@primasoft.example",
+        "representative": "Răzvan Tudor",
+        "contact": "Răzvan Tudor",
     },
-    {
-        "filename": "invoice_softcloud_2026_0520.pdf",
-        "title": "Factura SC nr. 0520 — SoftCloud Solutions SRL",
-        "text": """\
-Factura seria SC nr. 0520
-Data emiterii: 01.05.2026
-Furnizor: SoftCloud Solutions SRL
-CUI: RO00000006
-Client: Atelier Nova SRL
-CUI Client: RO00000002
-
-Servicii:
-1. Abonament cloud hosting Standard — mai 2026: 150 RON
-2. Serviciu backup automat zilnic — mai 2026: 70 RON
-
-Total: 220,00 RON (TVA inclus)
-Scadenta: 18.05.2026
-
-Mentiune: Nu exista in evidentele interne o aprobare scrisa sau un e-mail
-de confirmare pentru acest abonament.
-Contabilul a solicitat clarificari.""",
+    "drpopa": {
+        "name": "Cabinet Stomatologic Dr. Popa SRL",
+        "activity": "Servicii stomatologice",
+        "cui": "RO 28 6Ɛ7 412",
+        "reg_com": "J40/4Ɛ23/2019",
+        "address": "Str. Maria Rosetti nr. 22, București, Sector 2, 020485",
+        "iban": None,
+        "phone": "+40 7Ɛ4 567 890",
+        "email": "contact@drpopa.example",
+        "representative": "dr. Alina Popa",
+        "contact": "dr. Alina Popa",
     },
-    {
-        "filename": "contract_supplier_lumina_design.pdf",
-        "title": "Contract de colaborare nr. 12 — Lumina Design SRL",
-        "text": """\
-Contract de colaborare nr. 12 din 15.03.2026
-
-Parti:
-Lumina Design SRL, in calitate de furnizor
-Atelier Nova SRL, in calitate de beneficiar
-
-Obiect:
-Furnizarea de corpuri de iluminat decorative, panouri LED si accesorii
-pentru proiectele Atelier Nova.
-
-Termen de livrare:
-Furnizorul livreaza produsele in termen de 7 zile lucratoare de la
-confirmarea comenzii.
-
-Plata:
-Beneficiarul achita facturile in termen de 14 zile calendaristice de la
-data emiterii facturii.
-
-Penalitati:
-Pentru intarzieri la plata mai mari de 10 zile, se pot aplica penalitati
-de 0,05% pe zi din suma restanta.
-
-Durata:
-Contractul este valabil pana la 31.12.2026 si se poate prelungi prin
-acord scris.
-
-Incetare:
-Oricare parte poate denunta contractul cu notificare scrisa transmisa cu
-30 de zile inainte.""",
+    "aurora": {
+        "name": "Boutique Aurora SRL",
+        "activity": "Modă și accesorii · retail și showroom",
+        "cui": "RO 31 Ɛ56 089",
+        "reg_com": "J40/9Ɛ45/2020",
+        "address": "Calea Victoriei nr. 124, București, Sector 1, 010092",
+        "iban": None,
+        "phone": "+40 7Ɛ8 901 234",
+        "email": "office@boutique-aurora.example",
+        "representative": "Diana Mihăescu",
+        "contact": "Diana Mihăescu",
     },
-    {
-        "filename": "email_client_apartament_bucuresti.pdf",
-        "title": "Cerere oferta amenajare apartament — Radu Enache",
-        "text": """\
-Subiect: Cerere oferta amenajare apartament 3 camere
-
-Buna ziua,
-
-Am gasit portofoliul Atelier Nova si am dori o oferta pentru amenajarea
-unui apartament de 3 camere in Bucuresti, aproximativ 78 mp.
-
-Ne intereseaza:
-- consultanta design interior
-- propunere cromatica
-- recomandari mobilier
-- eventual coordonare furnizori
-
-Am vrea sa incepem in luna iunie. Ne puteti spune ce informatii aveti
-nevoie si care este un cost estimativ?
-
-Multumesc,
-Radu Enache""",
+    "bilantclar": {
+        "name": "Cabinet Contabilitate Bilanț Clar SRL",
+        "activity": "Servicii de contabilitate și consultanță fiscală",
+        "cui": "RO 14 Ɛ72 305",
+        "reg_com": "J40/6Ɛ45/2011",
+        "address": "Str. Pictor Verona nr. 18, București, Sector 1, 010313",
+        "iban": "RO82 BRDE 4Ɛ0S V123 4567 8910",
+        "phone": "+40 7Ɛ5 678 901",
+        "email": "contabilitate@bilantclar.example",
+        "representative": "ec. Daniela Andrei",
+        "contact": "ec. Daniela Andrei",
     },
-    {
-        "filename": "email_accountant_missing_docs_april.pdf",
-        "title": "Documente lipsa pentru luna aprilie — Mihai (contabil)",
-        "text": """\
-Subiect: Documente lipsa pentru luna aprilie
-
-Buna, Irina,
-
-Pentru inchiderea lunii aprilie am nevoie de urmatoarele documente:
-
-1. Factura de la Lumina Design SRL pentru panourile LED.
-2. Confirmarea platii catre PrintStudio pentru materialele promotionale.
-3. Contractul semnat cu clientul pentru proiectul Showroom Pitesti.
-4. Explicatie pentru factura SoftCloud, deoarece nu apare persoana care
-   a aprobat abonamentul.
-
-Te rog sa mi le trimiti pana pe 10 mai ca sa putem finaliza raportarea
-la timp.
-
-Multumesc,
-Mihai""",
+    "piataaveche": {
+        "name": "Restaurant Piața Veche SRL",
+        "activity": "Restaurare și servicii de alimentație publică",
+        "cui": "RO 26 Ɛ13 447",
+        "reg_com": "J40/7Ɛ56/2016",
+        "address": "Str. Lipscani nr. 33, București, Sector 3, 030033",
+        "iban": None,
+        "phone": "+40 7Ɛ6 789 012",
+        "email": "contact@piataveche.example",
+        "representative": "Mihai Florescu",
+        "contact": "Mihai Florescu",
     },
-]
+}
 
 
-FONT_REGULAR = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
-FONT_BOLD = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+def co(cid: str) -> dict:
+    if cid not in COMPANIES:
+        raise KeyError(f"Unknown company id: {cid!r}. Add it to the COMPANIES registry.")
+    return COMPANIES[cid]
 
 
-def make_pdf(doc: dict) -> None:
-    pdf = FPDF()
-    pdf.add_font("DejaVu", style="", fname=FONT_REGULAR)
-    pdf.add_font("DejaVu", style="B", fname=FONT_BOLD)
-    pdf.set_margins(20, 20, 20)
-    pdf.add_page()
-
-    w = pdf.epw
-
-    # Title
-    pdf.set_font("DejaVu", style="B", size=13)
-    pdf.multi_cell(w, 8, doc["title"])
-    pdf.ln(4)
-
-    # Divider
-    pdf.set_draw_color(180, 180, 180)
-    y = pdf.get_y()
-    pdf.line(pdf.l_margin, y, pdf.l_margin + w, y)
-    pdf.ln(6)
-
-    # Body — write entire text in one call so multi_cell handles line breaks
-    pdf.set_font("DejaVu", size=10)
-    pdf.multi_cell(w, 6, doc["text"])
-
-    out = OUT_DIR / doc["filename"]
-    pdf.output(str(out))
-    print(f"  {doc['filename']}")
+def _compute_invoice_totals(line_items: list[dict]) -> tuple[float, float, float]:
+    subtotal = sum(item["unit_price"] * item["qty"] for item in line_items)
+    vat = round(subtotal * 0.19, 2)
+    total = round(subtotal + vat, 2)
+    return round(subtotal, 2), vat, total
 
 
-def main():
-    OUT_DIR.mkdir(exist_ok=True)
-    print(f"Writing {len(DOCUMENTS)} PDFs to {OUT_DIR}/\n")
-    for doc in DOCUMENTS:
-        make_pdf(doc)
-    print(f"\nDone. Upload them via /app/inbox.")
+def build_invoice_context(y: dict) -> dict:
+    issuer = co(y["issuer_id"])
+    client = co(y["client_id"])
+    company = co(y["company_id"])
+    items = y["line_items"]
+    subtotal, vat, total = _compute_invoice_totals(items)
+    inv_no = y.get("invoice_no", "")
+    parts = inv_no.split("-", 1)
+    seria = parts[0] if len(parts) == 2 else inv_no
+    nr = parts[1] if len(parts) == 2 else ""
+    return {
+        "company": company,
+        "issuer": issuer,
+        "client": client,
+        "doc": {
+            "title": f"Factură seria {seria} nr. {nr}",
+            "invoice_no": inv_no,
+            "issue_date": y.get("issue_date", y["date"]),
+            "due_date": y["due_date"],
+            "subtotal": subtotal,
+            "vat": vat,
+            "total": total,
+            "line_items": items,
+            "notes": y.get("notes", ""),
+        },
+    }
+
+
+def build_contract_context(y: dict) -> dict:
+    party_a = co(y["party_a_id"])
+    party_b = co(y["party_b_id"])
+    company = co(y["company_id"])
+
+    party_a_ctx = {**party_a, "representative": y.get("party_a_representative", party_a["representative"])}
+    party_b_ctx = {**party_b, "representative": y.get("party_b_representative", party_b["representative"])}
+
+    articles_raw = y.get("articles", [])
+    articles = []
+    for art in articles_raw:
+        paras = art.get("paragraphs", [])
+        articles.append({
+            "title": art["title"],
+            "paragraphs": [paras] if isinstance(paras, str) else paras,
+        })
+
+    return {
+        "company": company,
+        "party_a": party_a_ctx,
+        "party_b": party_b_ctx,
+        "doc": {
+            "title": f"Contract nr. {y['contract_no']}",
+            "contract_no": y["contract_no"],
+            "date": y.get("issue_date", y["date"]),
+            "valid_until": y.get("valid_until", ""),
+            "preamble": y.get("preamble", ""),
+            "articles": articles,
+        },
+    }
+
+
+def build_offer_context(y: dict) -> dict:
+    offeror = co(y["offeror_id"])
+    recipient = co(y["recipient_id"])
+    company = co(y["company_id"])
+    items = y["line_items"]
+    subtotal, vat, total = _compute_invoice_totals(items)
+    return {
+        "company": company,
+        "offeror": offeror,
+        "recipient": recipient,
+        "doc": {
+            "title": f"Ofertă nr. {y['offer_no']}",
+            "offer_no": y["offer_no"],
+            "date": y.get("issue_date", y["date"]),
+            "valid_until": y["valid_until"],
+            "delivery_days": y.get("delivery_days", ""),
+            "subtotal": subtotal,
+            "vat": vat,
+            "total": total,
+            "line_items": items,
+            "notes": y.get("notes", ""),
+        },
+    }
+
+
+def build_email_letter_context(y: dict) -> dict:
+    sender = co(y["sender_id"])
+    recipient = co(y["recipient_id"])
+    company = co(y["company_id"])
+    return {
+        "company": company,
+        "sender": sender,
+        "recipient": recipient,
+        "doc": {
+            "date": y["date"],
+            "ref_no": y.get("ref_no") or "",
+            "salutation": y.get("salutation", "Stimată doamnă / Stimate domn,"),
+            "subject": y["subject"],
+            "paragraphs": y.get("paragraphs", []),
+            "bullet_items": y.get("items", []),
+            "closing_note": y.get("closing_note", ""),
+            "signature_name": y["signature_name"],
+            "signature_title": y.get("signature_title", ""),
+        },
+    }
+
+
+BUILDERS = {
+    "invoice": build_invoice_context,
+    "contract": build_contract_context,
+    "offer": build_offer_context,
+    "email_letter": build_email_letter_context,
+}
+
+
+def generate_all() -> list[dict]:
+    OUT_DIR.mkdir(parents=True, exist_ok=True)
+    yaml_files = sorted(YAML_DIR.glob("*.yaml"))
+    if not yaml_files:
+        print(f"No YAML files found in {YAML_DIR}")
+        return []
+
+    results = []
+    for yf in yaml_files:
+        y = yaml.safe_load(yf.read_text(encoding="utf-8"))
+        template = y["template"]
+        filename = y["filename"]
+        category = y["category"]
+
+        if template not in BUILDERS:
+            print(f"  SKIP  {filename}  — unknown template: {template!r}")
+            continue
+
+        try:
+            ctx = BUILDERS[template](y)
+            pdf_bytes = render(template, ctx)
+            out_path = OUT_DIR / filename
+            out_path.write_bytes(pdf_bytes)
+            kb = len(pdf_bytes) / 1024
+            results.append({"filename": filename, "category": category, "bytes": len(pdf_bytes), "ok": True})
+            print(f"  OK    {filename:<52}  {category:<22}  {kb:6.1f} kB")
+        except Exception as exc:
+            results.append({"filename": filename, "category": category, "ok": False, "error": str(exc)})
+            print(f"  FAIL  {filename:<52}  {exc}")
+
+    ok = sum(1 for r in results if r["ok"])
+    print(f"\n{ok}/{len(results)} PDFs generated → {OUT_DIR}")
+    return results
 
 
 if __name__ == "__main__":
-    main()
+    generate_all()

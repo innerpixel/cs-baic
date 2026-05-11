@@ -31,9 +31,9 @@
   {% endfor %}
 </div>
 
-{% if doc.items %}
+{% if doc.bullet_items %}
 <ul style="font-size:8.5pt; margin-top:6px; margin-bottom:10px; padding-left:18px;">
-  {% for item in doc.items %}
+  {% for item in doc.bullet_items %}
   <li style="margin-bottom:3px;">{{ item }}</li>
   {% endfor %}
 </ul>

@@ -39,3 +39,5 @@ apps/tests/evals/results/*.json
 
 # Generated demo PDFs (run scripts/generate_demo_pdfs.py to recreate)
 apps/api/scripts/demo_pdfs/
+apps/api/var/demo_pdfs/**/*.pdf
+apps/api/var/storage/

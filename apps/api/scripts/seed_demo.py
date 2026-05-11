@@ -1,20 +1,32 @@
-"""Seed the full 7-document demo set into the API.
+"""Seed demo data into the API database.
 
-Documents:
-  - 5 supplier invoices
-  - 1 supplier contract
-  - 1 accountant request email
+Usage:
+    cd apps/api
+    uv run python scripts/seed_demo.py [--company atelier-nova] [--include-dev-source]
+
+Modes:
+    --company atelier-nova  (default) generates 18 Atelier Nova PDFs and ingests them.
+    --include-dev-source    additionally seeds the 8 legacy text docs as source=dev_source.
 """
+import argparse
 import sys
 import time
-import urllib.request
-import urllib.parse
-import urllib.error
-import json
+from pathlib import Path
 
-API_BASE = "http://localhost:8000"
+import yaml
 
-DOCUMENTS = [
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+from app.db.session import SessionLocal
+from app.services.analysis import run_analysis
+from app.services.upload_intake import ingest_pdf
+
+
+YAML_DIR = Path(__file__).parent / "demo_content" / "atelier_nova"
+PDF_DIR = Path(__file__).parent.parent / "var" / "demo_pdfs" / "atelier_nova"
+
+# 8 legacy text docs → seeded as source=dev_source
+DEV_SOURCE_DOCS = [
     {
         "filename": "invoice_lumina_design_2026_0041.txt",
         "type": "supplier_invoice",
@@ -28,15 +40,15 @@ CUI Client: RO00000002
 
 Produse:
 1. Panouri LED decorative model Aurora, 12 buc, 185 RON/buc
-2. Cablu alimentare și accesorii montaj, 1 set, 340 RON
+2. Cablu alimentare si accesorii montaj, 1 set, 340 RON
 
 Subtotal: 2.560 RON
 TVA: 486,40 RON
-Total de plată: 3.046,40 RON
-Scadență: 12.05.2026
+Total de plata: 3.046,40 RON
+Scadenta: 12.05.2026
 IBAN: RO00BANK0000000000000001
 
-Mențiune: Comanda internă nu este trecută pe factură.""",
+Mentiune: Comanda interna nu este trecuta pe factura.""",
     },
     {
         "filename": "invoice_mobila_artisan_2026_0187.txt",
@@ -50,15 +62,13 @@ IBAN: RO00BANK0000000000000003
 Client: Atelier Nova SRL
 CUI Client: RO00000002
 
-Produse și servicii:
+Produse si servicii:
 1. Rafturi personalizate model Industrial Slim, 4 module, 720 RON/buc = 2.880 RON
-2. Montaj și fixare la locație, 1 serviciu = 280 RON
+2. Montaj si fixare la locatie, 1 serviciu = 280 RON
 
 Subtotal: 3.160 RON (TVA inclus 504 RON)
-Total de plată: 3.160,00 RON
-Scadență: 21.05.2026
-
-Notă: Livrarea a fost confirmată telefonic pe 29.04.2026. Procesul-verbal de recepție nu a fost semnat.""",
+Total de plata: 3.160,00 RON
+Scadenta: 21.05.2026""",
     },
     {
         "filename": "invoice_printstudio_2026_0098.txt",
@@ -69,16 +79,13 @@ Data emiterii: 25.04.2026
 Furnizor: PrintStudio Media SRL
 CUI: RO00000004
 Client: Atelier Nova SRL
-CUI Client: RO00000002
 
 Produse:
 1. Cataloage produs format A4, 200 exemplare, 2,20 RON/buc = 440 RON
-2. Cărți de vizită premium, 500 buc, 0,60 RON/buc = 300 RON
-3. Design grafic și pregătire tipărire, 1 serviciu = 108 RON
+2. Carti de vizita premium, 500 buc, 0,60 RON/buc = 300 RON
+3. Design grafic si pregatire tiparire, 1 serviciu = 108 RON
 
-Total: 848,00 RON (TVA inclus)
-Mențiune: Factura a fost achitată prin ordin bancar pe 02.05.2026.
-Confirmarea plății nu a fost transmisă contabilului.""",
+Total: 848,00 RON (TVA inclus)""",
     },
     {
         "filename": "invoice_curier_rapid_2026_1142.txt",
@@ -89,18 +96,15 @@ Data emiterii: 30.04.2026
 Furnizor: Curier Rapid Express SRL
 CUI: RO00000005
 Client: Atelier Nova SRL
-CUI Client: RO00000002
 
 Servicii livrare aprilie 2026:
 1. Livrare pachet mobilier mic (01.04.2026) — 85 RON
 2. Livrare mostre materiale textile (10.04.2026) — 95 RON
-3. Livrare comandă client Ionescu (18.04.2026) — 145 RON [DISPUTAT]
+3. Livrare comanda client Ionescu (18.04.2026) — 145 RON [DISPUTAT]
 4. Livrare accesorii LED (24.04.2026) — 116 RON
 
 Total: 441,00 RON (TVA inclus)
-Scadență: 15.05.2026
-
-Notă internă: Clientul Ionescu a reclamat că pachetul din 18.04 era incomplet. Situația nu este clarificată.""",
+Scadenta: 15.05.2026""",
     },
     {
         "filename": "invoice_softcloud_2026_0520.txt",
@@ -111,16 +115,13 @@ Data emiterii: 01.05.2026
 Furnizor: SoftCloud Solutions SRL
 CUI: RO00000006
 Client: Atelier Nova SRL
-CUI Client: RO00000002
 
 Servicii:
 1. Abonament cloud hosting Standard — mai 2026: 150 RON
 2. Serviciu backup automat zilnic — mai 2026: 70 RON
 
 Total: 220,00 RON (TVA inclus)
-Scadență: 18.05.2026
-
-Mențiune: Nu există în evidențele interne o aprobare scrisă sau un e-mail de confirmare pentru acest abonament. Contabilul a solicitat clarificări.""",
+Scadenta: 18.05.2026""",
     },
     {
         "filename": "contract_supplier_lumina_design.txt",
@@ -128,131 +129,154 @@ Mențiune: Nu există în evidențele interne o aprobare scrisă sau un e-mail d
         "text": """\
 Contract de colaborare nr. 12 din 15.03.2026
 
-Părți:
-Lumina Design SRL, în calitate de furnizor
-Atelier Nova SRL, în calitate de beneficiar
+Parti:
+Lumina Design SRL, in calitate de furnizor
+Atelier Nova SRL, in calitate de beneficiar
 
 Obiect:
-Furnizarea de corpuri de iluminat decorative, panouri LED și accesorii pentru proiectele Atelier Nova.
+Furnizarea de corpuri de iluminat decorative, panouri LED si accesorii.
 
 Termen de livrare:
-Furnizorul livrează produsele în termen de 7 zile lucrătoare de la confirmarea comenzii.
+Furnizorul livreaza produsele in termen de 7 zile lucratoare de la confirmarea comenzii.
 
-Plată:
-Beneficiarul achită facturile în termen de 14 zile calendaristice de la data emiterii facturii.
+Plata:
+Beneficiarul achita facturile in termen de 14 zile calendaristice de la data emiterii.
 
-Penalități:
-Pentru întârzieri la plată mai mari de 10 zile, se pot aplica penalități de 0,05% pe zi din suma restantă.
+Penalitati:
+Pentru intarzieri la plata mai mari de 10 zile, penalitati de 0,05% pe zi.
 
-Durată:
-Contractul este valabil până la 31.12.2026 și se poate prelungi prin acord scris.
-
-Încetare:
-Oricare parte poate denunța contractul cu notificare scrisă transmisă cu 30 de zile înainte.""",
+Durata: valabil pana la 31.12.2026.""",
     },
     {
         "filename": "email_client_apartament_bucuresti.txt",
         "type": "client_request",
         "text": """\
-Subiect: Cerere ofertă amenajare apartament 3 camere
+Subiect: Cerere oferta amenajare apartament 3 camere
 
-Bună ziua,
+Buna ziua,
 
-Am găsit portofoliul Atelier Nova și am dori o ofertă pentru amenajarea unui apartament de 3 camere în București, aproximativ 78 mp.
+Am gasit portofoliul Atelier Nova si am dori o oferta pentru amenajarea unui apartament
+de 3 camere in Bucuresti, aproximativ 78 mp.
 
-Ne interesează:
-- consultanță design interior
-- propunere cromatică
-- recomandări mobilier
-- eventual coordonare furnizori
+Ne intereseaza: consultanta design interior, propunere cromatica, recomandari mobilier,
+eventual coordonare furnizori.
 
-Am vrea să începem în luna iunie. Ne puteți spune ce informații aveți nevoie și care este un cost estimativ?
+Am vrea sa incepem in luna iunie.
 
-Mulțumesc,
+Multumesc,
 Radu Enache""",
     },
     {
         "filename": "email_accountant_missing_docs_april.txt",
         "type": "accountant_request",
         "text": """\
-Subiect: Documente lipsă pentru luna aprilie
+Subiect: Documente lipsa pentru luna aprilie
 
-Bună, Irina,
+Buna, Irina,
 
-Pentru închiderea lunii aprilie am nevoie de următoarele documente:
-
+Pentru inchiderea lunii aprilie am nevoie de:
 1. Factura de la Lumina Design SRL pentru panourile LED.
-2. Confirmarea plății către PrintStudio pentru materialele promoționale.
-3. Contractul semnat cu clientul pentru proiectul Showroom Pitești.
-4. Explicație pentru factura SoftCloud, deoarece nu apare persoana care a aprobat abonamentul.
+2. Confirmarea platii catre PrintStudio.
+3. Contractul semnat cu clientul pentru proiectul Showroom Pitesti.
+4. Explicatie pentru factura SoftCloud (persoana care a aprobat abonamentul).
 
-Te rog să mi le trimiți până pe 10 mai ca să putem finaliza raportarea la timp.
+Te rog sa mi le trimiti pana pe 10 mai.
 
-Mulțumesc,
+Multumesc,
 Mihai""",
     },
 ]
 
 
-def upload(doc: dict) -> str:
-    boundary = "---SeederBoundary"
-    lines = []
-    for field in ("text", "filename", "type"):
-        lines.append(f"--{boundary}")
-        lines.append(f'Content-Disposition: form-data; name="{field}"')
-        lines.append("")
-        lines.append(doc[field])
-    lines.append(f"--{boundary}--")
-    body = "\r\n".join(lines).encode("utf-8")
-
-    req = urllib.request.Request(
-        f"{API_BASE}/api/documents",
-        data=body,
-        headers={"Content-Type": f"multipart/form-data; boundary={boundary}"},
-        method="POST",
-    )
-    with urllib.request.urlopen(req) as resp:
-        return json.loads(resp.read())["id"]
+def _load_yaml_categories() -> dict[str, str]:
+    cats = {}
+    for yf in YAML_DIR.glob("*.yaml"):
+        y = yaml.safe_load(yf.read_text(encoding="utf-8"))
+        cats[y["filename"]] = y["category"]
+    return cats
 
 
-def poll(doc_id: str, max_wait: int = 180) -> dict | None:
-    for _ in range(max_wait // 2):
-        req = urllib.request.Request(f"{API_BASE}/api/documents/{doc_id}")
-        with urllib.request.urlopen(req) as resp:
-            data = json.loads(resp.read())
-        if data["status"] in ("done", "failed", "not_supported_yet"):
-            return data
-        time.sleep(2)
-    return None
+def seed_atelier_nova(db) -> int:
+    from scripts.generate_demo_pdfs import generate_all
+    print("Generating Atelier Nova PDFs…")
+    results = generate_all()
+    failed = [r for r in results if not r["ok"]]
+    if failed:
+        print(f"WARNING: {len(failed)} PDFs failed to generate: {[r['filename'] for r in failed]}")
+
+    categories = _load_yaml_categories()
+    pdf_files = sorted(PDF_DIR.glob("*.pdf"))
+    if not pdf_files:
+        print("ERROR: no PDFs found in var/demo_pdfs/atelier_nova/ — generation may have failed")
+        return 0
+
+    count = 0
+    for pdf_path in pdf_files:
+        pdf_bytes = pdf_path.read_bytes()
+        category = categories.get(pdf_path.name, "unknown")
+        print(f"  Ingesting {pdf_path.name} ({category}) …", end=" ", flush=True)
+        doc_id = ingest_pdf(
+            filename=pdf_path.name,
+            pdf_bytes=pdf_bytes,
+            db=db,
+            doc_type=category,
+            source="public",
+        )
+        run_analysis(doc_id, db)
+        doc = db.get(__import__("app.db.models", fromlist=["Document"]).Document, doc_id)
+        print(f"status={doc.status}")
+        count += 1
+
+    return count
+
+
+def seed_dev_source(db) -> int:
+    import uuid as _uuid
+    from app.db.models import AuditEvent, Document
+    count = 0
+    for doc_spec in DEV_SOURCE_DOCS:
+        doc_id = _uuid.uuid4()
+        doc = Document(
+            id=doc_id,
+            filename=doc_spec["filename"],
+            type=doc_spec["type"],
+            raw_text=doc_spec["text"],
+            status="queued",
+            source="dev_source",
+        )
+        db.add(doc)
+        db.add(AuditEvent(
+            document_id=doc_id,
+            event_type="uploaded",
+            event_data={"filename": doc_spec["filename"], "source": "dev_source"},
+        ))
+        db.commit()
+        print(f"  Ingesting {doc_spec['filename']} (dev_source) …", end=" ", flush=True)
+        run_analysis(doc_id, db)
+        doc = db.get(Document, doc_id)
+        print(f"status={doc.status}")
+        count += 1
+    return count
 
 
 def main():
-    print(f"Seeding {len(DOCUMENTS)} documents into {API_BASE}…\n")
-    for doc in DOCUMENTS:
-        print(f"Uploading {doc['filename']} ({doc['type']}) ...", end=" ", flush=True)
-        try:
-            doc_id = upload(doc)
-        except urllib.error.URLError as e:
-            print(f"FAILED (upload error): {e}")
-            sys.exit(1)
-        print(f"id={doc_id}", end=" ", flush=True)
+    parser = argparse.ArgumentParser(description="Seed NovAI Desk demo data")
+    parser.add_argument("--company", default="atelier-nova", choices=["atelier-nova"],
+                        help="Demo company to seed (default: atelier-nova)")
+    parser.add_argument("--include-dev-source", action="store_true",
+                        help="Also seed the 8 legacy text docs as source=dev_source")
+    args = parser.parse_args()
 
-        result = poll(doc_id)
-        if result is None:
-            print("TIMEOUT — analysis did not complete in 90s")
-            continue
+    with SessionLocal() as db:
+        if args.company == "atelier-nova":
+            n = seed_atelier_nova(db)
+            print(f"\nAtelier Nova: {n} PDFs seeded.")
 
-        analysis = result.get("analysis")
-        status = result["status"]
-        if analysis:
-            summary = (analysis.get("summary") or "")[:60]
-            urgency = analysis.get("urgency") or "—"
-            dtype = analysis.get("detected_type") or "—"
-            print(f"OK · status={status} · urgency={urgency} · detected={dtype} · summary={summary!r}")
-        else:
-            print(f"status={status}")
+        if args.include_dev_source:
+            n = seed_dev_source(db)
+            print(f"Dev source: {n} text docs seeded.")
 
-    print("\nDone. Run GET /api/documents to verify 8 rows.")
+    print("\nDone. Run GET /api/documents to verify rows.")
 
 
 if __name__ == "__main__":
