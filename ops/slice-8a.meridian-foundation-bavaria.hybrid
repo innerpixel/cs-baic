@@ -1,0 +1,479 @@
+---
+id: slice-8a.meridian-foundation-bavaria
+type: build-slice
+domain: bca.demo-content + bca.backend
+agreement: bca.build-roadmap
+state: forming
+density: L2.5
+---
+
+# Slice 8a · Meridian Foundation + Linia Bavaria Trading Line
+
+*Multi-company demo data · intl_invoice template variant · Linia Bavaria authored end-to-end (HydroBayern DE supplier + AutoComp RO client) · intra-Meridian foundation · ~15 docs · multilingual (EN for foreign correspondence · RO for internal + RO clients) · public site unchanged · Atelier Nova still front-and-center*
+
+---
+
+## Why
+
+Slice-7 made NovAI Desk demoable to a Romanian SME visitor. Slice-8 makes the *Ask My Company* demo real — but Ask only sings when there's enough corpus to ask interesting questions of. Meridian Comerț Internațional SRL — a 30-person industrial spare-parts trading firm with 3 named trading lines, foreign suppliers, RO clients, in-house legal, and an external accountant — is the archive that gives Ask something to find.
+
+45 docs is heavy. We split:
+
+- **slice-8a (this codon)** — multi-company schema · template extension for international invoices · the **Linia Bavaria** trading line end-to-end (HydroBayern GmbH supplier ↔ AutoComp Industries RO client) · intra-Meridian foundation docs (accounting · admin · one internal procedure) · ~15 docs total · the architectural foundation that 8b just adds content to
+- **slice-8b** (coordinator writes after 8a ships) — Contract Anatolia (Anadolu Bearings TR) · Acord Suzhou (Suzhou Precision Tools CN) · ongoing suppliers (Officine Lombarde IT · ProTech Drives CN) · Romanian B2B clients for those lines (Moara Solca · Atelier Mecanic Iași) · legal opinions from SCA Marin & Asociații · remaining Diligent accounting docs · remaining intra-Meridian docs · ~30 docs
+
+Meridian stays backstage on the public site this slice. The visitor experience is unchanged. Meridian docs exist in the DB, flow through the analyzer pipeline, and get indexed by DocumentIndexer — but `/app/inbox` continues to show only Atelier Nova. Slice-9 turns Meridian visible by wiring the guided Ask My Company experience.
+
+Language rule for 8a:
+- HydroBayern correspondence (invoices · order confirmations · emails) in **English** — international B2B trade reality
+- AutoComp Industries correspondence (Meridian's RO client) in **Romanian**
+- Intra-Meridian docs (Diligent emails · admin · internal procedures) in **Romanian**
+
+This is one of the more interesting demo signals: a Romanian SME's archive is naturally multilingual, and Ask My Company should ground answers across both languages without flinching.
+
+---
+
+## Scope
+
+```
+IN     Document.company column     enum {"atelier_nova", "meridian"} · NOT NULL · default "atelier_nova"
+                                     migration backfills existing 18+8 rows as "atelier_nova"
+                                     /app/inbox default filter: company="atelier_nova" (visitor-facing)
+                                     /app/ask: searches ALL companies (intentional — Ask is the cross-company surface
+                                     in slice-9; in 8a Ask still works on Atelier Nova only since Meridian
+                                     isn't user-visible yet, but the data is there)
+
+       Document.trading_line       nullable string · stores "linia_bavaria" | "contract_anatolia" |
+                                     "acord_suzhou" | "ongoing" | null · populated from YAML meta
+                                     used by slice-9 for guided-question grouping
+                                     null for Atelier Nova docs · null for intra-Meridian foundation docs
+
+       intl_invoice template       apps/api/app/pdf_templates/intl_invoice.html (extends invoice.html or base.html)
+                                     additions over invoice.html: currency code shown next to amounts · incoterms
+                                     line (e.g., "FCA München, Incoterms 2020") · customs reference field ·
+                                     order reference field · contains both "Issuer (DE/TR/CN/IT)" and "Bill to:
+                                     Meridian Comerț Internațional SRL" blocks · English labels
+                                     reuse styles.css palette
+
+       Linia Bavaria docs          HydroBayern GmbH (DE supplier · 6 docs):
+                                     · 3 supplier_invoice EN · intl_invoice template · EUR + RON note
+                                     · 1 contract EN · supply agreement · Linia Bavaria scope
+                                     · 1 supplier_offer EN · price list update or new pump model
+                                     · 1 client_request EN · or an "order confirmation request" email from HydroBayern
+                                       (classifier should likely return "client_request" or "supplier_offer" — record
+                                       which it lands on)
+                                    AutoComp Industries SRL (RO client · 3 docs):
+                                     · 1 contract RO · client framework agreement for Linia Bavaria deliveries
+                                     · 2 client_invoice RO · Meridian invoicing AutoComp for delivered parts
+                                    Dispute thread (1 doc · EN or RO depending on origin):
+                                     · 1 client_request — AutoComp complaint about defective bearing batch ·
+                                       Meridian-internal-facing · classifier likely "client_request" — verify
+
+       Intra-Meridian foundation   5 docs (all RO):
+                                     · 1 accountant_request — Diligent monthly closing checklist
+                                     · 1 accountant_request — Diligent email asking for missing supplier docs
+                                     · 1 internal_procedure — supplier onboarding procedure (Mihai Stoica · Supply Chain head)
+                                       Note: "internal_procedure" is in the classifier enum from slice-4 ·
+                                       first time we actually exercise it · verify classifier picks it correctly
+                                     · 1 client_request — Roxana Niță (office mgr) admin email requesting expense
+                                       reports from team OR · 1 email from Director (Andrei Vasilescu) to team about
+                                       quarterly priorities — pick whichever feels more like a real SME archive
+                                     · 1 hr_document — small HR-related doc (vacation policy or year-end bonus
+                                       memo) · also exercises a classifier label not yet seen in committed docs
+
+       YAML schema extension       template: invoice | intl_invoice | contract | offer | email_letter
+                                   category: <existing 6> | internal_procedure | hr_document  (extends to 8)
+                                   meta.language: "ro" | "en" (NEW · drives PDF rendering language fields ·
+                                                                 defaults to "ro" if absent for backward compat)
+                                   meta.trading_line: "linia_bavaria" | null  (NEW · stored in Document.trading_line)
+                                   meta.currency: "RON" | "EUR" | "USD"  (NEW · intl_invoice template uses it)
+                                   meta.incoterms: e.g., "FCA München, Incoterms 2020"  (intl_invoice only)
+
+       seed extension              scripts/seed_demo.py --company meridian
+                                     reads YAMLs under demo_content/meridian/ · renders PDFs into
+                                     var/demo_pdfs/meridian/ · ingests through upload intake · sets
+                                     Document.company="meridian" · Document.trading_line from YAML meta
+                                     default seed (no --company flag) seeds BOTH atelier-nova AND meridian-foundation
+                                     (so a fresh `docker compose up` + seed gives the full corpus)
+                                     existing --company atelier-nova path unchanged
+
+       generator extension         scripts/generate_demo_pdfs.py
+                                     reads from demo_content/atelier_nova/ AND demo_content/meridian/
+                                     emits to var/demo_pdfs/atelier_nova/ and var/demo_pdfs/meridian/ respectively
+                                     supports --company filter flag (default: both)
+                                     companies.synthetic short-id registry: extend with meridian + foreign suppliers +
+                                     RO clients
+
+       audit content disclosure    apps/web/src/routes/about/+page.svelte
+                                     small addition in "Ce NU face" / synthetic-data section: mention that
+                                     Meridian Comerț Internațional SRL is the second synthetic company in the
+                                     archive (powers Ask My Company demos · 45 docs · 3 trading lines) ·
+                                     ~2 sentences in Romanian · sets honest expectations · NO link to a download
+                                     or to /app/inbox filtered to Meridian — Meridian stays backstage in UI
+
+OUT    Contract Anatolia trading line       slice-8b
+       Acord Suzhou trading line            slice-8b
+       Ongoing suppliers (Officine/ProTech) slice-8b
+       Moara Solca · Atelier Mecanic Iași   slice-8b
+       SCA Marin legal opinions             slice-8b
+       Remaining Diligent docs              slice-8b
+       Remaining intra-Meridian docs        slice-8b
+       Meridian visible in /app/inbox       slice-9 (when Ask experience is guided)
+       Meridian download CTA on public site never (Meridian is the Ask demo · Atelier Nova is the upload-back demo)
+       Guided Ask experience                slice-9
+       Legal letter template variant        slice-8b (when SCA Marin docs land)
+       Spec sheet / technical doc template  slice-8b (when Suzhou + ProTech tech specs land)
+       Customs declaration template         slice-8b only if needed · intl_invoice may cover the realistic shape
+       Document.country / Document.currency columns   defer · YAML meta.currency is enough for rendering
+       Multi-tenant / auth                  never
+       Send button                          ever
+```
+
+---
+
+## Acceptance
+
+```
+schema           alembic upgrade head succeeds · Document.company column exists with enum ·
+                 Document.trading_line column exists nullable · existing 26 rows (18 atelier + 8 dev) ·
+                 all backfilled to company="atelier_nova" · trading_line=null
+                 PATCH /api/documents/{id} ignores company/trading_line (read-only after creation)
+                 no API for changing company post-ingest (not a feature this slice)
+
+template         apps/api/app/pdf_templates/intl_invoice.html exists · renders a sample HydroBayern
+                 invoice end-to-end · English labels · EUR currency shown · incoterms line present ·
+                 letterhead block uses HydroBayern identity from companies.synthetic
+                 Ɛ does NOT appear in foreign supplier IDs (DE USt-IdNr uses Ɛ already · just verify glyph renders)
+
+generator        uv run python scripts/generate_demo_pdfs.py --company meridian
+                   → ~15 PDFs in var/demo_pdfs/meridian/ · split:
+                     6 HydroBayern (EN) · 3 AutoComp (RO) · 1 dispute · 5 intra-Meridian (RO)
+                   → all render cleanly · EN docs use English labels · RO docs use Romanian labels
+                   → Ɛ renders correctly in all CUI/IBAN/J-number fields
+                 uv run python scripts/generate_demo_pdfs.py  (no flag)
+                   → regenerates both Atelier Nova and Meridian PDFs
+
+seed             alembic downgrade base && alembic upgrade head &&
+                 uv run python scripts/seed_demo.py
+                   → 18 atelier_nova docs + ~15 meridian docs · all status="done" · all chunks indexed
+                   → spot check 3 random Meridian docs:
+                     · company="meridian" · trading_line set correctly per YAML
+                     · classifier output matches declared category (allow ≤2 disagreements)
+                     · summarizer output in correct language (EN for HydroBayern, RO for AutoComp/intra-Meridian)
+                 uv run python scripts/seed_demo.py --company meridian (only)
+                   → ~15 meridian docs · atelier_nova rows untouched if present, else absent
+                 uv run python scripts/seed_demo.py --include-dev-source
+                   → adds the 8 dev_source docs as before
+
+/app/inbox       still shows 18 Atelier Nova docs as before · Meridian docs NOT visible
+                 verify via API: GET /api/documents (default) → 18 rows · all company="atelier_nova"
+                 GET /api/documents?company=meridian → ~15 rows (intentionally accessible via query
+                 for builder/eval; UI never sets this flag this slice)
+
+/app/ask         live API can now answer questions sourced from Meridian docs · spot check:
+                   "Cine este furnizorul pentru pompele hidraulice?" → HydroBayern GmbH cited
+                   "Ce contract avem cu AutoComp?" → AutoComp framework contract cited
+                   "What is the price for the pump model X?" (if such a doc exists) → answers in EN if
+                     source is EN · this is FYI · slice-9 makes guided querying the polished surface
+                 NOTE: this slice does NOT ship UI changes for cross-company Ask · this is just
+                 verification that data is there and retrievable
+
+multilingual     at least one Meridian EN doc shows summarizer output in EN
+                 at least one Meridian RO doc shows summarizer output in RO
+                 classifier handles both (it's prompt-based so should be fine — record any oddity)
+                 Ask returns answers in the language of the source-cited chunks if mixed (acceptable variance)
+
+about page       /about (RO) has a new paragraph in the synthetic-data block disclosing Meridian:
+                   "Pentru demonstrația Ask My Company folosim o a doua companie sintetică, Meridian
+                    Comerț Internațional SRL — o firmă de comerț cu piese industriale, ~30 angajați,
+                    3 linii comerciale. Arhiva conține ~45 de documente în română și engleză."
+                 NO link to a download or Meridian inbox view · just disclosure
+
+evals            uv run python -m app.evals.run
+                   → slice-3/4/5/7 fixtures still pass at previous thresholds (regression)
+                   → optional: 1 new fixture for HydroBayern invoice extraction (EN-language)
+                     verifies invoice_extractor handles English (worth knowing before 8b authors 10+ EN docs)
+
+build            cd apps/web && npm run check → 0 errors
+                 cd apps/web && npm run build → 0 errors
+                 cd apps/api && uv run python -m pytest (if tests exist) → green
+```
+
+---
+
+## Constraints inherited
+
+See `ops/rules.constraints.hybrid`. Slice-8a reinforcements:
+
+- All foreign supplier identities come from `ops/companies.synthetic.hybrid` (HydroBayern · AutoComp etc are already listed there). Add new ones only if needed and only with ONRC/equivalent check + Ɛ-swap. The Meridian counterparty roster is largely complete from 2026-05-10.
+- English correspondence still uses Ɛ in foreign IDs (DE USt-IdNr · TR Vergi No · CN USCC · IT P.IVA) per the safety convention. The Ɛ is universal across languages.
+- Romanian docs remain Romanian (Diligent · AutoComp · intra-Meridian). No translation drift.
+- Tone applies to all Romanian and English copy: no revolutionary/transformation language. International invoices and legal-sounding docs can be formal, but never marketing-flavored.
+- Public site copy in `/about` (the new Meridian disclosure paragraph) follows §Tone — calm, concrete, honest.
+- No new runtime prompts. Existing classifier/summarizer/invoice_extractor/contract_reviewer/ask/draft prompts handle the new content. If a prompt clearly fails on English input, that's an open edge — record it; do not silently amend the prompt mid-slice.
+- No Send button. No autonomous email. (Trust principle.)
+- DocumentIndexer is normal-analyzer registered (slice-5 framework) — Meridian docs flow through it without special-casing.
+
+---
+
+## Resolved decisions (coordinator)
+
+```
+language mix              foreign supplier correspondence in EN · RO clients + intra-Meridian in RO
+                          (taste call · 2026-05-11 · reflects international trade reality)
+
+slice size                slice-8 split into 8a (foundation + Linia Bavaria · ~15 docs) and 8b
+                          (remaining trading lines + clients + legal + admin · ~30 docs)
+                          (2026-05-11 user decision · less builder fatigue · cleaner checkpoints)
+
+public visibility         Meridian stays backstage in slice-8a AND slice-8b · /app/inbox shows only
+                          Atelier Nova · /about gets a disclosure paragraph · slice-9 wires the
+                          guided Ask My Company experience and that's where Meridian becomes
+                          user-visible (2026-05-11)
+
+company isolation         add Document.company enum column · backfill existing rows to "atelier_nova" ·
+                          /app/inbox default filter company=atelier_nova · /app/ask searches all
+                          (rationale: lets us seed both archives without /app/inbox getting muddled ·
+                           keeps slice-9 Ask architecture simple — no second pipeline)
+
+trading line tracking     Document.trading_line nullable string · populated from YAML meta.trading_line ·
+                          used by slice-9 guided-question grouping · null for Atelier Nova + intra-Meridian
+                          (rationale: simpler than a separate trading_lines table for ~3 distinct values ·
+                           promote to a table if we ever have many lines or need attributes)
+
+template extension        intl_invoice.html new template (extends invoice.html semantics · adds
+                          currency · incoterms · customs ref · EN labels) · contract template REUSED
+                          for both EN and RO contracts via meta.language driving label set
+                          (rationale: minimize template proliferation · keep editing surface small)
+
+YAML schema growth        meta.language · meta.trading_line · meta.currency · meta.incoterms
+                          (back-compat: missing = defaults — language="ro" · trading_line=null ·
+                          currency="RON" · incoterms=null)
+
+intra-Meridian docs       5 docs total in 8a · exercise classifier categories internal_procedure +
+                          hr_document for the first time in committed content (slice-4 had them in
+                          the enum but no docs to verify against)
+                          (rationale: surfaces classifier behavior on these labels before 8b doubles down)
+
+trading_line in URL/UI    NOT in 8a · slice-9 owns the UI surface that filters by trading_line
+                          GET /api/documents?company=meridian acceptable for builder/eval only
+
+new counterparties        none expected in 8a · companies.synthetic.hybrid already lists HydroBayern +
+                          AutoComp · all other 8a docs are intra-Meridian (Diligent · Roxana ·
+                          Mihai Stoica · Andrei Vasilescu — all in companies.synthetic Meridian block)
+                          if builder finds a gap: add to companies.synthetic FIRST with ONRC check
+```
+
+---
+
+## Schema additions
+
+```
+Document.company        ENUM("atelier_nova", "meridian") NOT NULL DEFAULT "atelier_nova"
+                        backfill existing rows to "atelier_nova"
+Document.trading_line   VARCHAR(64) NULL
+                        used values in 8a: "linia_bavaria" or null
+                        slice-8b adds: "contract_anatolia" · "acord_suzhou" · "ongoing"
+                        kept as string (no enum) for slice-9 flexibility
+
+migration name          slice-8a meridian company trading_line
+                        single migration · two columns · explicit DEFAULT on company for backfill safety
+```
+
+---
+
+## Files to be created/modified
+
+```
+apps/api/alembic/versions/<n>_slice8a_company_trading_line.py    schema migration
+apps/api/app/models/document.py                                  company + trading_line fields
+apps/api/app/pdf_templates/intl_invoice.html                     NEW · extends base · EN labels
+apps/api/scripts/demo_content/meridian/*.yaml                    ~15 YAMLs (10 Linia Bavaria + 5 intra-Meridian)
+apps/api/scripts/generate_demo_pdfs.py                           extend: --company flag · meridian subdir support
+apps/api/scripts/seed_demo.py                                    extend: --company meridian · default seeds both
+apps/api/app/services/upload_intake.py                           ingest_pdf accepts company + trading_line kwargs
+apps/api/app/api/documents.py                                    GET /api/documents accepts ?company= filter
+apps/web/src/routes/about/+page.svelte                           Meridian disclosure paragraph (RO)
+apps/api/app/evals/fixtures/meridian_bavaria.py                  OPTIONAL · 1 HydroBayern EN invoice fixture
+```
+
+---
+
+## Builder prompt
+
+Copy this into a fresh IDE session (Sonnet) at `/home/innerpixel/dev/sme-companion`:
+
+```text
+Read in order: CLAUDE.md · ops/project.state.hybrid · ops/rules.constraints.hybrid · ops/companies.synthetic.hybrid (Meridian section + foreign suppliers + AutoComp) · ops/slice-7.novai-desk-inbox-demo.hybrid (for PDF pipeline + seed patterns to mirror) · ops/slice-8a.meridian-foundation-bavaria.hybrid (this codon).
+
+You are the builder for slice-8a. Slice-7 shipped stable yesterday. Your job: introduce the multi-company schema, extend the PDF pipeline for international invoices, and author the Linia Bavaria trading line + intra-Meridian foundation (~15 docs total) in EN/RO. No frontend work except a small RO disclosure paragraph on /about.
+
+Commit at every numbered checkpoint. Stop and report if a step blocks — append a line to §Open edges in this codon and commit what you have.
+
+Tasks:
+
+1. SCHEMA MIGRATION (FIRST · everything else depends on company column).
+   - alembic revision -m "slice-8a meridian company trading_line"
+   - Hand-edit: Document.company ENUM("atelier_nova","meridian") NOT NULL DEFAULT "atelier_nova" · backfill all existing rows to "atelier_nova" in op.execute · Document.trading_line VARCHAR(64) NULL
+   - Update app/models/document.py
+   - alembic upgrade head; verify columns + backfill correct (SELECT DISTINCT company FROM documents should return only "atelier_nova" with 18+ rows)
+   Commit: "slice-8a(schema): Document.company + trading_line · backfill atelier_nova"
+
+2. INTL_INVOICE TEMPLATE.
+   - apps/api/app/pdf_templates/intl_invoice.html: extends base.html · English labels (Invoice · Bill to · Date · Total · Incoterms · Customs Ref · Bank Account · IBAN · etc) · two-column header (Issuer + Bill to: Meridian Comerț Internațional SRL) · line items table · totals (Subtotal · VAT (if applicable) · Total in declared currency) · footer with payment instructions and incoterms
+   - Variables expected in context: issuer (full identity) · bill_to (Meridian identity) · invoice_no · date · currency · incoterms · customs_ref · items[] (description, qty, unit_price, line_total) · totals · payment_terms · iban · swift_bic
+   - Render a sample HydroBayern invoice (hardcode test context briefly · open the PDF · verify EN labels · Ɛ in DE USt-IdNr renders · EUR currency shows correctly · letterhead block uses HydroBayern address)
+   Commit: "slice-8a(pdf): intl_invoice template · EN labels · multi-currency"
+
+3. YAML SCHEMA + COMPANIES REGISTRY EXTENSION.
+   - Extend the companies.synthetic loader/registry (whatever slice-7 used — likely a small Python file like apps/api/scripts/companies.py or inline in generate_demo_pdfs.py) to include short-ids for: meridian, hydrobayern, anadolu, suzhou, officine, protech, autocomp, moara_solca, atelier_mecanic, diligent, sca_marin, plus the in-house people (vasilescu, dobre, stoica, lupascu, sirbu, petraru, vacaru, nita) — only add what 8a actually uses; 8b extends the rest
+   - YAML schema additions (back-compat defaults):
+       meta.language: "ro" | "en" (default "ro")
+       meta.trading_line: string (default null)
+       meta.currency: "RON" | "EUR" | "USD" (default "RON")
+       meta.incoterms: string (default null)
+   - generator: pass these into template context; intl_invoice consumes currency + incoterms; others ignore (Jinja2 default(none) pattern)
+   Commit: "slice-8a(content): companies registry + YAML schema extended for meridian/multilingual"
+
+4. LINIA BAVARIA YAMLs (10 docs).
+   - apps/api/scripts/demo_content/meridian/ (new dir)
+   - HydroBayern GmbH → Meridian (6 docs · EN · meta.language=en · trading_line=linia_bavaria):
+       hydrobayern-invoice-HB2026-0142.yaml  · template intl_invoice · category supplier_invoice · currency EUR · incoterms FCA München, Incoterms 2020 · 3 line items hydraulic pumps · body EN
+       hydrobayern-invoice-HB2026-0167.yaml  · same template · different invoice no/items
+       hydrobayern-invoice-HB2026-0198.yaml  · same · 3rd invoice
+       hydrobayern-contract-LB2025-04.yaml   · template contract (existing) · meta.language=en · supply framework agreement · scope Linia Bavaria
+       hydrobayern-offer-HB-OF2026-12.yaml   · template offer (existing) · meta.language=en · price list update for Q2
+       hydrobayern-orderconf-HB2026-0205.yaml · template email_letter · category client_request (or whatever classifier decides) · EN body: HydroBayern asking Meridian to confirm a quantity adjustment on an open order
+   - Meridian → AutoComp Industries SRL (3 docs · RO · meta.language=ro · trading_line=linia_bavaria):
+       autocomp-contract-MR2026-01.yaml      · template contract · RO · framework agreement for Linia Bavaria deliveries
+       meridian-clientinv-AC2026-0034.yaml   · template invoice (existing) · category client_invoice · RO · Meridian issues invoice to AutoComp for delivered pumps
+       meridian-clientinv-AC2026-0041.yaml   · same · 2nd invoice
+   - Dispute thread (1 doc · trading_line=linia_bavaria):
+       autocomp-complaint-defective-batch.yaml · template email_letter · category client_request · RO body: AutoComp complaining about a defective bearing batch (cross-cuts Linia Bavaria · escalation potential for slice-8b SCA Marin involvement)
+   Romanian/English content: write naturally · use specific quantities/prices/dates/part numbers · realistic but Ɛ-safe IDs · don't sound like generic SaaS copy
+   Commit: "slice-8a(content): 10 Linia Bavaria YAMLs · HydroBayern EN + AutoComp RO + dispute"
+
+5. INTRA-MERIDIAN FOUNDATION YAMLs (5 docs · all RO · trading_line=null).
+   - diligent-checklist-inchidere-lunara-mai.yaml  · template email_letter · category accountant_request · Diligent sends monthly closing checklist to Meridian accounting team
+   - diligent-request-docs-lipsa-aprilie.yaml      · template email_letter · category accountant_request · Diligent asking Meridian for missing supplier docs from April
+   - meridian-procedura-onboarding-furnizori.yaml  · template email_letter (or maybe a stripped letter variant if needed) · category internal_procedure · Mihai Stoica (Supply Chain head) authoring a supplier onboarding procedure · longer body · ~3 sections (verification · documents required · approval flow)
+   - meridian-admin-rapoarte-cheltuieli.yaml       · template email_letter · category client_request OR whatever the classifier prefers — this is an INTERNAL email from Roxana Niță asking the team for monthly expense reports · interesting test: does the classifier handle internal admin emails sensibly? Record what it returns
+   - meridian-hr-vacante-vara-2026.yaml            · template email_letter · category hr_document · short HR memo about summer vacation policy from Andrei Vasilescu to the team
+   All 5 use companies from the Meridian identity block in companies.synthetic — no new counterparties needed.
+   Commit: "slice-8a(content): 5 intra-Meridian foundation YAMLs · accounting + admin + procedures + HR"
+
+6. GENERATOR + SEED EXTENSION.
+   - scripts/generate_demo_pdfs.py: add --company flag (atelier-nova | meridian | both · default both) · read from demo_content/<company>/*.yaml · emit to var/demo_pdfs/<company>/<filename>.pdf · print summary table per company
+   - scripts/seed_demo.py:
+       --company meridian: generate + ingest meridian YAMLs · set Document.company="meridian" · set Document.trading_line from YAML meta
+       default (no --company): seed both atelier-nova AND meridian
+       --include-dev-source: unchanged (adds 8 dev_source on top)
+   - upload_intake.ingest_pdf: accept company + trading_line kwargs · pass through to Document creation
+   - Verify: alembic downgrade base && alembic upgrade head && uv run python scripts/seed_demo.py
+       → 18 atelier_nova rows · ~15 meridian rows · all status="done" · all indexed
+       → SELECT classifier_output FROM documents WHERE company='meridian' — check classifier agreement rate · record any disagreements in slice patchlog
+   Commit: "slice-8a(seed): meridian seed path · generator multi-company · 33 total docs ingested"
+
+7. DOCUMENTS API + INBOX FILTER.
+   - apps/api/app/api/documents.py: GET /api/documents accepts optional ?company=<value> query param (default: "atelier_nova" to keep /app/inbox unchanged) · ?company=all returns all
+   - apps/web/src/lib/api/documents.ts (or wherever the list is fetched): no UI change · ensure default fetch still gets only Atelier Nova (the default API behavior handles this)
+   - This keeps /app/inbox visually identical to today · Meridian rows exist but aren't shown
+   - Quick manual: GET /api/documents → ~18 rows · GET /api/documents?company=meridian → ~15 rows · GET /api/documents?company=all → ~33 rows
+   Commit: "slice-8a(api): /api/documents company filter · default atelier_nova · inbox visually unchanged"
+
+8. ABOUT PAGE DISCLOSURE.
+   - apps/web/src/routes/about/+page.svelte: in the synthetic-data section (the bit that explains Ɛ-swap and .example TLD), add a short paragraph in RO disclosing Meridian:
+       "Pentru demonstrația Ask My Company folosim o a doua companie sintetică, Meridian Comerț Internațional SRL — o firmă de comerț cu piese industriale, ~30 angajați, 3 linii comerciale (Linia Bavaria · Contract Anatolia · Acord Suzhou). Arhiva conține aproximativ 45 de documente în română și engleză, reflectând realitatea unei firme românești cu furnizori internaționali."
+   - TONE CHECK: calm · concrete · no revolutionary/transformare/etc. Read aloud.
+   Commit: "slice-8a(site): /about discloses Meridian as second synthetic company"
+
+9. OPTIONAL EVAL FIXTURE (HydroBayern EN invoice).
+   - apps/api/app/evals/fixtures/meridian_bavaria.py: 1 fixture · pick one HydroBayern invoice · expected: invoice_extractor returns supplier_name="HydroBayern GmbH" · currency hint in extracted text · invoice_no matches · total roughly matches · language indicator if present
+   - If invoice_extractor prompt struggles on EN (it was trained on RO invoices in slice-3 testing): record as open edge · do NOT amend the prompt mid-slice · slice-8b or a dedicated prompt-tuning slice handles it
+   Commit: "slice-8a(evals): 1 HydroBayern EN invoice fixture"
+
+10. ACCEPTANCE PASS.
+    - Walk every line of §Acceptance · capture pass/fail
+    - Manual: visit /app/inbox · verify 18 Atelier Nova docs unchanged · no Meridian rows visible
+    - Manual: visit /about · verify Meridian disclosure paragraph reads naturally in RO
+    - Manual: hit /api/ask with "Cine este furnizorul nostru pentru pompe hidraulice?" · verify HydroBayern cited
+    - Tone check on the /about Meridian paragraph: read aloud · strip any slop
+    - Build: cd apps/web && npm run check && npm run build
+
+11. SHIP.
+    - Append ONE PATCHLOG line to ops/slice-8a.meridian-foundation-bavaria.hybrid (timestamp · model · summary · doc-count actual per category · classifier agreement rate · any new open edges)
+    - Update state in slice-8a frontmatter forming → stable
+    - Append ONE PATCHLOG line to ops/project.state.hybrid · update §Now (current → slice-8b) · §Slices (slice-8 splits into 8a stable + 8b forming/seed)
+    - Update CLAUDE.md §Common operations: generate-demo-pdfs --company meridian · seed_demo --company meridian
+    - Final commit: "slice-8a: Meridian foundation + Linia Bavaria · 15 multilingual docs · state→stable"
+
+Hard rules (do not violate):
+- all identities from ops/companies.synthetic.hybrid · new counterparties added there FIRST (none expected in 8a)
+- Ɛ-swap preserved in all CUI/IBAN/phone/J-number/USt-IdNr/Vergi-No/USCC/P.IVA values
+- foreign correspondence in English · RO clients + intra-Meridian in Romanian · NO translation drift
+- Meridian docs do NOT appear in /app/inbox visually · /api default filter handles this
+- public site shows ONLY Atelier Nova as the visitor-facing inbox demo · Meridian is disclosed in /about as backstage
+- no Send button anywhere · ever
+- no new runtime prompts · existing classifier/summarizer/etc handle EN as best they can · record open edges
+- if classifier disagrees with declared category for >2 of 15 docs: inspect each · YAML adjusts if doc is genuinely ambiguous · LLM wrong otherwise · log in patchlog · do NOT relax prompts
+
+If invoice_extractor fails on HydroBayern EN invoices:
+- the prompt was authored RO-first in slice-3 · it may need EN tolerance · record in OPEN EDGES · do not amend mid-slice · 8b or dedicated tuning slice handles it
+- the slice still ships if classifier and summarizer work and invoice_extractor degrades gracefully (status="done" with partial extraction is acceptable for slice-8a; pure crash is not)
+
+If a Meridian counterparty needs a person/email not in companies.synthetic:
+- add to that file FIRST with Ɛ-swap and ONRC check (or equivalent for foreign entities — verify against the country's registry)
+- commit the companies.synthetic update separately before the YAML that uses it
+
+Confirm the plan in 3 lines, then start with task 1.
+```
+
+---
+
+## State
+
+```
+state     forming
+gravity   MEDIUM-HIGH (architectural foundation for multi-company demos · the Ask My Company corpus
+                       starts being real here · slice-9 depends on this)
+topology  defined → in-progress → shipped
+```
+
+---
+
+## Open edges
+
+```
+- invoice_extractor on EN input         prompt was RO-first in slice-3 · may need EN tolerance · log if it
+                                        misbehaves on HydroBayern docs · tuning is its own slice
+- classifier on EN input                ditto · may surprise on EN docs · record disagreements
+- internal_procedure + hr_document      first time committed content uses these labels · classifier
+                                        behavior on them is unverified · record what it returns
+- meta.language drives template labels  contract.html and email_letter.html should respect meta.language
+                                        to switch their labels EN/RO — if not done in slice-7, builder
+                                        decides whether to add this in 8a or defer to 8b
+- intra-Meridian admin email category   "rapoarte de cheltuieli" email isn't cleanly any of the 10 classifier
+                                        labels · interesting signal · whatever the classifier returns,
+                                        keep · note as a category-coverage gap in patchlog
+- Document.country / currency columns   deferred · YAML meta.currency is enough for rendering · revisit if
+                                        slice-9 needs to filter by currency in Ask
+- ?company= URL param                   GET /api/documents only · no UI surface · slice-9 owns Meridian UI
+```
+
+---
+
+## Patchlog
+
+```
+2026-05-11  coordinator(opus)  forming · slice-8 split into 8a (foundation + Linia Bavaria · ~15 docs) and
+                               8b (remaining lines + clients + legal + admin · ~30 docs) per user decision ·
+                               3 user judgment calls resolved: foreign correspondence in EN · slice-8
+                               split · Meridian backstage until slice-9 · scope: Document.company +
+                               Document.trading_line columns · intl_invoice template variant ·
+                               10 Linia Bavaria YAMLs (HydroBayern EN + AutoComp RO + 1 dispute) + 5
+                               intra-Meridian RO foundation docs (Diligent monthly closing/missing docs +
+                               supplier onboarding procedure + admin email + HR memo) · seed_demo
+                               extension with --company meridian · /about Meridian disclosure paragraph ·
+                               no /app/inbox UI changes (default company filter handles it) · 11 commit
+                               checkpoints · builder prompt embedded
+```
