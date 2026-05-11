@@ -16,7 +16,7 @@
 		>
 			<div style="display: flex; align-items: center; gap: 20px;">
 				<a href="/" style="color: var(--color-text-muted); text-decoration: none; font-size: 13px;">
-					← Business Companion AI
+					← NovAI Desk
 				</a>
 				<span style="color: var(--color-stroke); font-size: 13px;">|</span>
 				<span style="color: var(--color-text); font-size: 13px; font-weight: 500;">Atelier Nova SRL</span>

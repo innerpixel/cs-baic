@@ -1,100 +1,112 @@
 <script lang="ts">
+	import { browser } from '$app/environment';
+
+	const API_BASE = browser
+		? (import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000')
+		: 'http://localhost:8000';
+
+	const archiveUrl = `${API_BASE}/api/demo/atelier-nova/archive.zip`;
+
 	const steps = [
 		{
 			number: '01',
-			title: 'Documents arrive',
+			title: 'Documentele sosesc',
 			description:
-				'Atelier Nova SRL receives a supplier invoice (Lumina Design SRL), an accountant request, a client email about a design project, and a supplier contract — all through different channels.',
-			detail: 'Invoice · Accountant email · Client email · Supplier contract',
+				'Atelier Nova SRL primește facturi de la furnizori (Lumina Design, Mobilier Concept), cereri de la contabil (Bilanț Clar SRL), emailuri de la clienți (Dr. Popa, Aurora Construct) și contracte cu furnizorii — prin canale diferite.',
+			detail: 'Facturi · Contracte · Oferte · Cereri de la clienți · Cereri de la contabil',
 			accent: false
 		},
 		{
 			number: '02',
-			title: 'AI creates Inbox cards',
+			title: 'AI creează carduri în Inbox',
 			description:
-				'Each document is classified automatically: type, language, urgency. The AI Inbox organizes them into structured cards ready for review.',
-			detail: 'Supplier Invoice · Accountant Request · Client Request · Supplier Contract',
+				'Fiecare document este clasificat automat: tip, limbă, urgență. Inbox-ul organizează totul în carduri structurate, gata de verificat.',
+			detail: 'Factură furnizor · Cerere contabil · Cerere client · Contract furnizor · Ofertă',
 			accent: false
 		},
 		{
 			number: '03',
-			title: 'AI extracts key data',
+			title: 'AI extrage datele cheie',
 			description:
-				'For the invoice: supplier name, amount (3,046.40 RON), due date (12 May), and IBAN. For the contract: payment terms, delivery time, and penalty clauses.',
-			detail: 'Amounts · Due dates · Parties · Obligations · Payment terms',
+				'Pentru facturi: furnizor, sumă, scadență, IBAN. Pentru contracte: termene de plată, penalități, durată. Pentru emailuri: cererea principală, datele lipsă, urgența.',
+			detail: 'Sume · Scadențe · Părți contractante · Obligații · Câmpuri lipsă',
 			accent: false
 		},
 		{
 			number: '04',
-			title: 'AI flags missing information',
+			title: 'AI semnalează informațiile lipsă',
 			description:
-				'The Lumina Design invoice is missing the internal purchase order reference. The client email is missing floor plan, budget, and style preferences before an offer can be prepared.',
-			detail: 'Missing PO reference on invoice · Missing brief details from client',
+				'Unele documente vin incomplete. AI-ul marchează exact ce lipsește: un număr de comandă intern, un brief de la client, documentele solicitate de contabil.',
+			detail: 'Câmpuri lipsă vizibile pe fiecare card',
 			accent: true
 		},
 		{
 			number: '05',
-			title: 'AI suggests next actions',
+			title: 'AI sugerează acțiunea următoare',
 			description:
-				'For each document: a concrete suggested action. Ask for the missing PO reference. Collect the four documents the accountant needs by 10 May. Reply to the client with a brief request.',
-			detail: 'Suggested action visible on every card',
+				'Pentru fiecare document: o acțiune concretă sugerată. Solicită numărul de comandă lipsă. Adună cele patru documente pentru contabil. Răspunde clientului cu o cerere de brief.',
+			detail: 'Acțiune sugerată vizibilă pe fiecare card',
 			accent: false
 		},
 		{
 			number: '06',
-			title: 'Human reviews and approves',
+			title: 'Tu verifici și aprobi',
 			description:
-				'Irina (owner manager) opens each card, reads the AI summary, checks the extracted fields, and decides: approve the suggested action, edit it, or archive the document.',
-			detail: 'Approve · Edit · Archive — no autonomous decisions',
+				'Deschizi fiecare card, citești rezumatul AI, verifici câmpurile extrase și decizi: aprobat, necesită verificare sau respins. Nimic nu se trimite automat.',
+			detail: 'Aprobat · Necesită verificare · Respins — nicio decizie autonomă',
 			accent: false
 		},
 		{
 			number: '07',
-			title: 'Action completed · Audit logged',
+			title: 'Acțiunea e înregistrată în jurnal',
 			description:
-				'Every decision is recorded in the audit log: what the AI suggested, what the human approved, and when. The document moves to the next status: reviewed, approved, or done.',
-			detail: 'Full audit trail · Source references · Human approval marker',
+				'Fiecare decizie este salvată: ce a sugerat AI-ul, ce ai aprobat tu și când. Documentul trece în starea corectă: verificat, aprobat sau în așteptare.',
+			detail: 'Jurnal de audit complet · Referințe la surse · Marker de aprobare umană',
 			accent: false
 		}
 	];
 
 	const inboxCards = [
 		{
-			filename: 'invoice_lumina_design_2026_0041.pdf',
-			type: 'Supplier Invoice',
-			urgency: 'High',
-			summary: 'LED panels and accessories — 3,046.40 RON — due 12.05.2026',
-			flag: 'Missing PO reference'
+			filename: 'factura_lumina_design_2026_0041.pdf',
+			type: 'Factură furnizor',
+			urgency: 'Ridicată',
+			urgencyColor: 'var(--color-urgency-high)',
+			summary: 'Panouri LED și accesorii — 3.046,40 RON — scadent 12.05.2026',
+			flag: 'Număr comandă lipsă'
 		},
 		{
-			filename: 'email_accountant_missing_docs_april.txt',
-			type: 'Accountant Request',
-			urgency: 'High',
-			summary: '4 documents requested by Mihai — deadline 10 May',
-			flag: 'Deadline in 5 days'
+			filename: 'email_contabil_documente_aprilie.pdf',
+			type: 'Cerere contabil',
+			urgency: 'Ridicată',
+			urgencyColor: 'var(--color-urgency-high)',
+			summary: '4 documente solicitate de Mihai — termen 10 mai',
+			flag: 'Termen în 5 zile'
 		},
 		{
-			filename: 'email_client_apartament_bucuresti.txt',
-			type: 'Client Request',
-			urgency: 'Medium',
-			summary: 'Design offer for 78 sqm apartment in Bucharest — June start',
-			flag: 'Missing brief'
+			filename: 'cerere_client_dr_popa_remodelare.pdf',
+			type: 'Cerere client',
+			urgency: 'Medie',
+			urgencyColor: 'var(--color-urgency-medium)',
+			summary: 'Remodelare cabinet medical 65 mp — ofertă solicitată',
+			flag: 'Brief incomplet'
 		},
 		{
-			filename: 'contract_supplier_lumina_design.txt',
-			type: 'Supplier Contract',
-			urgency: 'Low',
-			summary: 'Collaboration contract — valid to 31.12.2026 — 3 risk flags',
-			flag: 'Payment penalties clause'
+			filename: 'contract_mobilier_concept_colaborare.pdf',
+			type: 'Contract furnizor',
+			urgency: 'Scăzută',
+			urgencyColor: 'var(--color-urgency-low)',
+			summary: 'Contract colaborare — valabil până 31.12.2026 — 2 clauze de risc',
+			flag: 'Clauze penalități'
 		}
 	];
 </script>
 
 <svelte:head>
-	<title>Demo Workflow — Business Companion AI</title>
+	<title>Demo — NovAI Desk</title>
 	<meta
 		name="description"
-		content="See how Business Companion AI processes invoices, emails, contracts, and accountant requests for a Romanian SME."
+		content="Vezi cum NovAI Desk procesează facturi, emailuri, contracte și cereri de la contabil pentru o firmă românească de design interior."
 	/>
 </svelte:head>
 
@@ -104,20 +116,17 @@
 		style="max-width: 1100px; margin: 0 auto; padding: 0 24px; height: 56px; display: flex; align-items: center; justify-content: space-between;"
 	>
 		<a href="/" style="color: var(--color-text); text-decoration: none; font-weight: 600; font-size: 15px;">
-			Business Companion AI
+			NovAI Desk
 		</a>
 		<div style="display: flex; gap: 24px; align-items: center;">
-			<a href="/demo" style="color: var(--color-text); text-decoration: none; font-size: 14px; font-weight: 500;">
-				Demo
-			</a>
-			<a href="/app/inbox" style="color: var(--color-text-muted); text-decoration: none; font-size: 14px;">
-				AI Inbox
-			</a>
+			<a href="/" style="color: var(--color-text-muted); text-decoration: none; font-size: 14px;">Acasă</a>
+			<a href="/about" style="color: var(--color-text-muted); text-decoration: none; font-size: 14px;">Despre</a>
+			<a href="/demo" style="color: var(--color-text); text-decoration: none; font-size: 14px; font-weight: 500;">Demo</a>
 			<a
-				href="mailto:ned.gabrielc@gmail.com?subject=Business Companion AI — Pilot Request"
+				href="/app/inbox"
 				style="background: var(--color-action); color: var(--color-text); text-decoration: none; padding: 7px 16px; border-radius: 5px; font-size: 13px; border: 1px solid var(--color-stroke);"
 			>
-				Request a Pilot
+				Aplicație
 			</a>
 		</div>
 	</div>
@@ -126,23 +135,40 @@
 <!-- HEADER -->
 <section style="max-width: 1100px; margin: 0 auto; padding: 56px 24px 40px;">
 	<p style="color: var(--color-text-muted); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 16px;">
-		Demo workflow · Atelier Nova SRL
+		Demo · Atelier Nova SRL
 	</p>
 	<h1 style="font-size: clamp(24px, 4vw, 36px); font-weight: 700; color: var(--color-text); margin: 0 0 16px; max-width: 640px; line-height: 1.25;">
-		From messy documents to clear next actions
+		De la documente disparate la acțiuni clare
 	</h1>
 	<p style="color: var(--color-text-muted); font-size: 16px; line-height: 1.6; max-width: 600px; margin: 0 0 32px;">
-		A Romanian SME receives supplier invoices, a client request, and an accountant email. The AI
-		Companion reads everything, classifies the items, extracts important information, and shows what
-		needs human approval.
+		O firmă de design interior din Pitești primește facturi, cereri de la clienți și emailuri de la
+		contabil. NovAI Desk citește totul, clasifică, extrage câmpurile importante și arată ce
+		necesită aprobare umană.
 	</p>
+
+	<!-- TWO CTAs -->
+	<div style="display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 32px;">
+		<a
+			href={archiveUrl}
+			download
+			style="display: inline-flex; align-items: center; gap: 8px; background: var(--color-action); color: var(--color-text); text-decoration: none; padding: 11px 22px; border-radius: 6px; font-size: 14px; font-weight: 500; border: 1px solid var(--color-stroke-light);"
+		>
+			Descarcă arhiva demo
+		</a>
+		<a
+			href="/app/inbox"
+			style="display: inline-flex; align-items: center; gap: 8px; background: transparent; color: var(--color-text); text-decoration: none; padding: 11px 22px; border-radius: 6px; font-size: 14px; border: 1px solid var(--color-stroke);"
+		>
+			Deschide aplicația →
+		</a>
+	</div>
+
 	<div
 		style="background: var(--color-main); border: 1px solid var(--color-stroke); border-radius: 6px; padding: 14px 18px; display: inline-flex; gap: 24px; font-size: 13px; color: var(--color-text-muted); flex-wrap: wrap;"
 	>
-		<span>Demo company: <strong style="color: var(--color-text);">Atelier Nova SRL</strong></span>
-		<span>4 documents processed</span>
-		<span>All data synthetic</span>
-		<span>Under 3 minutes</span>
+		<span>Compania demo: <strong style="color: var(--color-text);">Atelier Nova SRL</strong></span>
+		<span>18 documente procesate</span>
+		<span>Toate datele sunt sintetice</span>
 	</div>
 </section>
 
@@ -150,6 +176,9 @@
 
 <!-- WORKFLOW STEPS -->
 <section style="max-width: 1100px; margin: 0 auto; padding: 48px 24px;">
+	<p style="color: var(--color-text-muted); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 24px;">
+		Fluxul de lucru
+	</p>
 	<div style="display: flex; flex-direction: column; gap: 4px;">
 		{#each steps as step, i}
 			<div
@@ -187,10 +216,10 @@
 >
 	<div style="max-width: 1100px; margin: 0 auto; padding: 48px 24px;">
 		<p style="color: var(--color-text-muted); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 8px;">
-			The AI Inbox after processing
+			Inbox-ul după procesare
 		</p>
 		<p style="color: var(--color-text-muted); font-size: 13px; margin-bottom: 28px;">
-			These are the 4 cards generated for Atelier Nova SRL. Click "Open AI Inbox" to explore them.
+			Câteva exemple din cardurile generate pentru Atelier Nova SRL. Deschide aplicația pentru a le explora pe toate.
 		</p>
 		<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin-bottom: 28px;">
 			{#each inboxCards as card}
@@ -204,11 +233,7 @@
 							{card.type}
 						</span>
 						<span
-							style="font-size: 11px; color: {card.urgency === 'High'
-								? 'var(--color-urgency-high)'
-								: card.urgency === 'Medium'
-									? 'var(--color-urgency-medium)'
-									: 'var(--color-urgency-low)'}; font-weight: 600;"
+							style="font-size: 11px; color: {card.urgencyColor}; font-weight: 600;"
 						>
 							{card.urgency}
 						</span>
@@ -222,35 +247,48 @@
 					<div
 						style="font-size: 11px; color: var(--color-urgency-medium); background: var(--color-data); padding: 3px 8px; border-radius: 3px; display: inline-block;"
 					>
-						⚠ {card.flag}
+						{card.flag}
 					</div>
 				</div>
 			{/each}
 		</div>
-		<a
-			href="/app/inbox"
-			style="display: inline-block; background: var(--color-action); color: var(--color-text); text-decoration: none; padding: 11px 22px; border-radius: 6px; font-size: 14px; border: 1px solid var(--color-stroke-light);"
-		>
-			Open AI Inbox →
-		</a>
+		<div style="display: flex; gap: 12px; flex-wrap: wrap;">
+			<a
+				href="/app/inbox"
+				style="display: inline-block; background: var(--color-action); color: var(--color-text); text-decoration: none; padding: 11px 22px; border-radius: 6px; font-size: 14px; border: 1px solid var(--color-stroke-light);"
+			>
+				Deschide aplicația →
+			</a>
+			<a
+				href={archiveUrl}
+				download
+				style="display: inline-block; background: transparent; color: var(--color-text); text-decoration: none; padding: 11px 22px; border-radius: 6px; font-size: 14px; border: 1px solid var(--color-stroke);"
+			>
+				Descarcă arhiva demo
+			</a>
+		</div>
 	</div>
 </section>
 
-<!-- CTA -->
-<section style="max-width: 1100px; margin: 0 auto; padding: 56px 24px;">
-	<div style="max-width: 520px;">
-		<h2 style="font-size: 22px; font-weight: 600; color: var(--color-text); margin: 0 0 12px;">
-			Test one workflow in your company.
-		</h2>
-		<p style="color: var(--color-text-muted); font-size: 15px; line-height: 1.6; margin: 0 0 24px;">
-			The pilot starts with one small workflow, not a full platform. 14 days, anonymized documents,
-			clear results.
-		</p>
-		<a
-			href="mailto:ned.gabrielc@gmail.com?subject=Business Companion AI — Pilot Request"
-			style="display: inline-block; background: var(--color-action); color: var(--color-text); text-decoration: none; padding: 12px 24px; border-radius: 6px; font-size: 15px; border: 1px solid var(--color-stroke-light); font-weight: 500;"
-		>
-			Request a Pilot
-		</a>
-	</div>
+<!-- NOTA DATE SINTETICE -->
+<section style="max-width: 1100px; margin: 0 auto; padding: 40px 24px;">
+	<p style="font-size: 13px; color: var(--color-text-muted); line-height: 1.7; max-width: 640px;">
+		Toate documentele din arhivă sunt <strong style="color: var(--color-text);">sintetice</strong> — generate special pentru acest demo.
+		Câmpurile sensibile (CUI, IBAN, telefon, J-number) conțin caracterul
+		<code style="background: var(--color-data); padding: 1px 5px; border-radius: 3px; font-size: 12px;">Ɛ</code>
+		pentru a preveni orice confuzie cu date reale.
+		<a href="/about" style="color: var(--color-stroke-light); text-decoration: underline;">Află mai multe despre proiect</a>.
+	</p>
 </section>
+
+<!-- FOOTER -->
+<footer style="max-width: 1100px; margin: 0 auto; padding: 32px 24px; border-top: 1px solid var(--color-stroke);">
+	<div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+		<div style="font-size: 13px; color: var(--color-text-muted);">NovAI Desk · demo</div>
+		<div style="display: flex; gap: 20px; align-items: center;">
+			<a href="/" style="color: var(--color-text-muted); text-decoration: none; font-size: 13px;">Acasă</a>
+			<a href="/about" style="color: var(--color-text-muted); text-decoration: none; font-size: 13px;">Despre</a>
+			<a href="/app/inbox" style="color: var(--color-text-muted); text-decoration: none; font-size: 13px;">Aplicație</a>
+		</div>
+	</div>
+</footer>
