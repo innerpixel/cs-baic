@@ -3,7 +3,7 @@ id: slice-7.novai-desk-inbox-demo
 type: build-slice
 domain: bca.frontend + bca.backend + bca.demo-content
 agreement: bca.build-roadmap
-state: forming
+state: stable
 density: L2.5
 ---
 
@@ -564,6 +564,19 @@ topology  defined → in-progress → shipped
 ## Patchlog
 
 ```
+2026-05-11  builder(sonnet-4-6)  stable · full slice shipped in two sessions · 9 commits ·
+                               18 authored Atelier Nova PDFs (7 supplier_invoice · 2 contract ·
+                               2 supplier_offer · 3 client_request · 1 client_invoice · 3 accountant_request) ·
+                               weasyprint + Jinja2 pipeline · embedded PDF viewer · three-state review ·
+                               RO public site (/ + /about + /demo + public nav) · archive.zip download ·
+                               ZIP upload intake · ?focus= deep-link · 3 eval fixtures (all pass) ·
+                               eval suite: 17/19 (2 pre-existing failures: invoice_lumina/extractor
+                               intentional-fail + accountant_email/summarizer LLM variance) ·
+                               3 classifier disagreements: aurora-invoice, aurora-request, piataveche-request
+                               (LLM vs YAML — YAML kept correct; recorded as open edge from prev session) ·
+                               font: DejaVu Sans (Ɛ glyph renders cleanly) · Jinja2 .items() clash fixed
+                               (email_letter uses bullet_items) · build 0 errors · svelte-check 0 errors
+
 2026-05-11  coordinator(opus)  forming · slice-7/8/9 plan locked 2026-05-10 · this codon written today
                                · 3 user judgment calls resolved: public site = Romanian (rules amended) ·
                                upload-back loop = single ZIP download · single-slice scope (no 7a/7b split)

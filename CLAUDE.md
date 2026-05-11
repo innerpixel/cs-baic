@@ -62,7 +62,15 @@ cd infra && docker compose up -d postgres
 ```sh
 cd apps/api && uv run alembic upgrade head
 cd apps/api && uv run uvicorn app.main:app --reload   # :8000
-cd apps/api && uv run python scripts/seed_demo.py      # seed 8-doc demo set (invoices + contract + accountant + client request)
+
+# Slice-7 Atelier Nova demo (18 authored PDFs):
+cd apps/api && uv run python scripts/generate_demo_pdfs.py          # regenerate 18 PDFs → var/demo_pdfs/atelier_nova/
+cd apps/api && uv run python scripts/seed_demo.py --company atelier-nova   # seed 18 PDFs (public source)
+cd apps/api && uv run python scripts/seed_demo.py --company atelier-nova --include-dev-source  # + 8 legacy dev_source docs
+
+# Archive download (requires PDFs generated first):
+# GET http://localhost:8000/api/demo/atelier-nova/archive.zip
+
 cd apps/api && uv run python -m app.evals.run          # run eval harness (all fixtures × analyzers)
 cd apps/api && uv run python -m app.evals.run --fixture invoice_lumina --analyzer invoice_extractor
 cd apps/api && uv run python -m app.evals.run --ask    # Ask My Company fixtures (requires live DB + pgvector)
@@ -72,7 +80,7 @@ cd apps/api && uv run python -m app.evals.run --ask    # Ask My Company fixtures
 ```sh
 cd infra && docker compose down && docker compose up -d postgres   # switches to pgvector/pgvector:pg16
 cd apps/api && uv run alembic upgrade head                         # creates document_chunks + hnsw index
-cd apps/api && uv run python scripts/seed_demo.py                  # reseed + index all 8 docs
+cd apps/api && uv run python scripts/seed_demo.py --company atelier-nova   # seed 18 Atelier Nova PDFs
 ```
 
 **Frontend (apps/web/):**
@@ -83,5 +91,6 @@ cd apps/web && npm run check  # svelte-check
 ```
 
 Stack: SvelteKit · Svelte 5 · TypeScript · Tailwind v4 · FastAPI · SQLAlchemy · Alembic · PostgreSQL+pgvector
-Routes: `/` · `/demo` · `/app/inbox` (live, API) · `/app/ask` (live, RAG)
+Routes: `/` · `/about` · `/demo` · `/app/inbox` (live, API) · `/app/ask` (live, RAG)
+Public site: Romanian (/, /about, /demo) · App UI: English (/app/*)
 Mock data: `apps/web/src/lib/data/inbox.ts` (kept in tree · not used on live routes post slice-5)

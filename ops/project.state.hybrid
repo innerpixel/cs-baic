@@ -18,10 +18,9 @@ density: L2.5
 ```
 phase      1 stable · DEMO POLISH PHASE
 public     NovAI Desk · novaidesk.csmcl.space  (internal: Business Companion AI / BCA)
-current    slice-7 forming · NovAI Desk inbox demo · Atelier Nova SRL
-            PDF generator (weasyprint) · embedded viewer · site IA · About page ·
-            upload-back loop · ~18 demo PDFs across 6 classifier categories
-next       slice-8  Meridian / Urban Novel Desk archive package (~45 docs)
+current    slice-8 seed · Meridian / Urban Novel Desk archive package (~45 docs)
+next       slice-9  Ask My Company guided experience
+           slice-6  VPS deployment (after slice-9)
            slice-9  Ask My Company guided experience
            slice-6  VPS deployment (after slice-9)
 blocked    —
@@ -53,7 +52,7 @@ slice-2  demo-data + ask + reply mocks               stable     gravity HIGH
 slice-3  monorepo + fastapi + invoice extractor e2e  stable          5/5 invoices extracted clean
 slice-4  classifier + summary + PDF + eval harness   stable     9/10 eval · contract_reviewer 10/10 · dict preservation verified
 slice-5  RAG (pgvector) + Ask live + Draft live          stable     8 docs · 33 chunks · grounded ask + Romanian draft + honest "not found" verified live · OCR deferred
-slice-7  NovAI Desk inbox demo · Atelier Nova SRL    forming    PDF generator (weasyprint) + embedded viewer + site IA + About page + upload-back loop + ~18 demo PDFs across 6 classifier categories · existing 8 docs reclassified as dev_source bootstrap
+slice-7  NovAI Desk inbox demo · Atelier Nova SRL    stable     18 authored PDFs (7 inv · 2 contract · 2 offer · 3 client_req · 1 client_inv · 3 accountant) · weasyprint + Jinja2 · embedded PDF viewer · three-state review · RO public site (/ /about /demo) · archive.zip download · ZIP upload intake · ?focus= deep-link · eval 17/19
 slice-8  Meridian archive package · Urban Novel Desk seed       ~45 demo docs across 5 departments (Commercial · Supply Chain · Legal · Accounting · Admin) · 3 named trading lines · reuses slice-7 PDF generator · content-heavy
 slice-9  Ask My Company guided experience            seed       guide panel · suggested questions grouped by department · archive status banner · clickable sources · regression eval set against Meridian
 slice-6  VPS deployment (docker compose · nginx · HTTPS)  seed       deferred until after slice-9 · open: hosting · prod LLM key · postgres on-VPS vs managed · backups · domain answered (novaidesk.csmcl.space)
@@ -230,5 +229,6 @@ branch   main
 2026-05-10  coordinator(opus)          ops/companies.synthetic.hybrid authored · canonical identities for both demo companies + all counterparties (suppliers · clients · accountants · external counsel) · Ɛ-swap (U+0190) + .example TLD safety conventions · cross-references mapping which counterparty appears in which slice
 2026-05-10  coordinator(opus)          demo polish phase locked via discussion · public name NovAI Desk · domain novaidesk.csmcl.space · ICP refined (primary standalone RO SMEs · secondary in-house teams inside RO enterprises like Mega Image RO legal) · 2nd synthetic company added: Meridian Comerț Internațional SRL (industrial spare parts trading · codename Urban Novel Desk) · slice-7/8/9 plan locked · slice-6 deferred until after slice-9 · PDF authoring Bar B (weasyprint authored PDFs from the start) · existing 8 docs reclassified as dev_source bootstrap · public upload restricted to PDF + ZIP · ~6 dogfood field notes absorbed into slice-7/9 · rules.constraints amended (Naming section + Data section + Ɛ-swap safety) · slice-7 codon next
 2026-05-11  coordinator(opus)          slice-7 codon written: ops/slice-7.novai-desk-inbox-demo.hybrid · 3 user judgment calls resolved (public site=Romanian · upload-back=single-ZIP download · single-slice scope) · rules.constraints Language section amended for public-site RO carve-out · scope: weasyprint PDF pipeline + 18 Atelier Nova PDFs across 6 categories (15 from companies.synthetic cross-ref + 3 filler) + PDF/ZIP upload backend (5MB PDF · 10MB ZIP · 20 PDFs/ZIP) + embedded viewer + three-state review (approved/needs_review/rejected) + RO public site (/, /about, /demo, nav) + archive.zip download endpoint + ?focus= source linking + 3 new eval fixtures · existing 8 docs → source=dev_source filtered from default inbox · text upload → /api/_internal behind env flag · 13 commit checkpoints · builder prompt embedded
+2026-05-11  builder(sonnet-4-6)       slice-7 stable · 9 commits · 18 authored Atelier Nova PDFs (weasyprint+Jinja2) · embedded viewer (PdfViewer.svelte + GET /api/documents/{id}/pdf) · three-state review (ReviewActions.svelte + PATCH /api/documents/{id}/review_state) · RO public site (/ + /about + /demo + public nav Acasă·Despre·Demo·Aplicație) · archive.zip endpoint · ZIP upload intake (5MB/10MB/20-PDF caps) · ?focus= source deep-link · eval fixtures package (atelier_nova_pdfs.py · 3 new fixtures all 10/10) · eval 17/19 (2 pre-existing failures: invoice_lumina/extractor intentional + accountant_email/summarizer flaky) · build 0 errors · svelte-check 0 errors · Ɛ glyph verified via DejaVu Sans · 3 classifier disagreements noted in slice-7 patchlog (YAML correct; LLM wrong) · current→slice-8
 
 ```
