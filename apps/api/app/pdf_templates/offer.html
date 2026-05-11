@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block body %}
+
+<div class="doc-title">{{ doc.title }}</div>
+<div class="doc-meta">
+  <span>Nr. ofertă: <strong>{{ doc.offer_no }}</strong></span>
+  <span>Data: {{ doc.date }}</span>
+</div>
+
+<div class="parties">
+  <div class="party">
+    <div class="party-role">Ofertant</div>
+    <div class="party-name">{{ offeror.name }}</div>
+    <div>CUI: {{ offeror.cui }}</div>
+    <div>{{ offeror.address }}</div>
+    <div>{{ offeror.email }}</div>
+    {% if offeror.contact %}<div>Contact: {{ offeror.contact }}</div>{% endif %}
+  </div>
+  <div class="party">
+    <div class="party-role">Destinatar</div>
+    <div class="party-name">{{ recipient.name }}</div>
+    <div>CUI: {{ recipient.cui }}</div>
+    <div>{{ recipient.address }}</div>
+  </div>
+</div>
+
+<div class="offer-validity">
+  Ofertă valabilă până la: <strong>{{ doc.valid_until }}</strong>
+  {% if doc.delivery_days %}&nbsp;|&nbsp; Livrare estimată: {{ doc.delivery_days }} zile lucrătoare{% endif %}
+</div>
+
+<div class="section-label">Articole ofertate</div>
+<table class="line-items">
+  <thead>
+    <tr>
+      <th>Descriere</th>
+      <th class="right">Cantitate</th>
+      <th class="right">Preț unitar (RON)</th>
+      <th class="right">TVA (19%)</th>
+      <th class="right">Total (RON)</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for item in doc.line_items %}
+    <tr>
+      <td>{{ item.description }}</td>
+      <td class="right">{{ item.qty }}</td>
+      <td class="right">{{ "%.2f"|format(item.unit_price) }}</td>
+      <td class="right">{{ "%.2f"|format(item.unit_price * item.qty * 0.19) }}</td>
+      <td class="right">{{ "%.2f"|format(item.unit_price * item.qty * 1.19) }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<div class="totals-box">
+  <div class="totals-row">
+    <span>Subtotal</span>
+    <span>{{ "%.2f"|format(doc.subtotal) }} RON</span>
+  </div>
+  <div class="totals-row">
+    <span>TVA (19%)</span>
+    <span>{{ "%.2f"|format(doc.vat) }} RON</span>
+  </div>
+  <div class="totals-row">
+    <span>Total ofertă</span>
+    <span>{{ "%.2f"|format(doc.total) }} RON</span>
+  </div>
+</div>
+
+{% if doc.notes %}
+<div class="payment-note">{{ doc.notes }}</div>
+{% endif %}
+
+<div class="offer-closing">Vă mulțumim pentru interesul acordat și rămânem la dispoziția dumneavoastră.</div>
+
+{% endblock %}

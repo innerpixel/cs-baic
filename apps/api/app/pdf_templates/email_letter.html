@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block body %}
+
+<div class="doc-meta">
+  <span>Data: {{ doc.date }}</span>
+  {% if doc.ref_no %}<span>Ref.: {{ doc.ref_no }}</span>{% endif %}
+</div>
+
+<div class="parties" style="margin-bottom:10px;">
+  <div class="party">
+    <div class="party-role">De la</div>
+    <div class="party-name">{{ sender.name }}</div>
+    {% if sender.contact %}<div>{{ sender.contact }}</div>{% endif %}
+    <div>{{ sender.email }}</div>
+  </div>
+  <div class="party">
+    <div class="party-role">Către</div>
+    <div class="party-name">{{ recipient.name }}</div>
+    {% if recipient.contact %}<div>{{ recipient.contact }}</div>{% endif %}
+    <div>{{ recipient.email }}</div>
+  </div>
+</div>
+
+<div class="letter-salutation">{{ doc.salutation }}</div>
+
+<div class="letter-subject">Subiect: {{ doc.subject }}</div>
+
+<div class="letter-body">
+  {% for para in doc.paragraphs %}
+  <p>{{ para }}</p>
+  {% endfor %}
+</div>
+
+{% if doc.items %}
+<ul style="font-size:8.5pt; margin-top:6px; margin-bottom:10px; padding-left:18px;">
+  {% for item in doc.items %}
+  <li style="margin-bottom:3px;">{{ item }}</li>
+  {% endfor %}
+</ul>
+{% endif %}
+
+{% if doc.closing_note %}
+<div class="payment-note" style="margin-top:10px;">{{ doc.closing_note }}</div>
+{% endif %}
+
+<div class="sender-block">
+  <div>Cu stimă,</div>
+  <div><strong>{{ doc.signature_name }}</strong></div>
+  {% if doc.signature_title %}<div>{{ doc.signature_title }}</div>{% endif %}
+  <div>{{ sender.name }}</div>
+  <div>{{ sender.email }}</div>
+</div>
+
+{% endblock %}

@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block body %}
+
+<div class="doc-title">{{ doc.title }}</div>
+<div class="doc-meta">
+  <span>Nr.: <strong>{{ doc.contract_no }}</strong></span>
+  <span>Data: {{ doc.date }}</span>
+  {% if doc.valid_until %}<span>Valabil până la: {{ doc.valid_until }}</span>{% endif %}
+</div>
+
+<p style="font-size:8.5pt; text-align:justify; margin-bottom:12px;">{{ doc.preamble }}</p>
+
+<div class="section-label">Părțile contractante</div>
+<div class="parties">
+  <div class="party">
+    <div class="party-role">Prestator / Vânzător</div>
+    <div class="party-name">{{ party_a.name }}</div>
+    <div>CUI: {{ party_a.cui }}</div>
+    <div>{{ party_a.address }}</div>
+    {% if party_a.iban %}<div>IBAN: {{ party_a.iban }}</div>{% endif %}
+    <div>Reprezentant: {{ party_a.representative }}</div>
+  </div>
+  <div class="party">
+    <div class="party-role">Beneficiar / Cumpărător</div>
+    <div class="party-name">{{ party_b.name }}</div>
+    <div>CUI: {{ party_b.cui }}</div>
+    <div>{{ party_b.address }}</div>
+    {% if party_b.iban %}<div>IBAN: {{ party_b.iban }}</div>{% endif %}
+    <div>Reprezentant: {{ party_b.representative }}</div>
+  </div>
+</div>
+
+{% for article in doc.articles %}
+<div class="article">
+  <h3>Art. {{ loop.index }}. {{ article.title }}</h3>
+  {% for para in article.paragraphs %}
+  <p>{{ loop.index }}.{{ loop.index }}. {{ para }}</p>
+  {% endfor %}
+</div>
+{% endfor %}
+
+<div class="signature-block">
+  <div class="sig-party">
+    <div class="sig-name">{{ party_a.name }}</div>
+    <div>Reprezentant: {{ party_a.representative }}</div>
+    <div class="sig-line"></div>
+    <div>Semnătură și ștampilă</div>
+  </div>
+  <div class="sig-party">
+    <div class="sig-name">{{ party_b.name }}</div>
+    <div>Reprezentant: {{ party_b.representative }}</div>
+    <div class="sig-line"></div>
+    <div>Semnătură și ștampilă</div>
+  </div>
+</div>
+
+{% endblock %}

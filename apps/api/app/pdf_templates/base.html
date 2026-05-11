@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="{{ css_path }}">
+</head>
+<body>
+
+<div class="letterhead">
+  <div class="letterhead-company">
+    <div class="name">{{ company.name }}</div>
+    <div class="activity">{{ company.activity }}</div>
+  </div>
+  <div class="letterhead-contact">
+    <div>CUI: {{ company.cui }} &nbsp;|&nbsp; Reg. com.: {{ company.reg_com }}</div>
+    <div>{{ company.address }}</div>
+    {% if company.iban %}<div>IBAN: {{ company.iban }}</div>{% endif %}
+    <div>{{ company.email }} &nbsp;|&nbsp; {{ company.phone }}</div>
+  </div>
+</div>
+
+<div class="doc-generated">Document generat: {{ generated_date }}</div>
+
+{% block body %}{% endblock %}
+
+</body>
+</html>

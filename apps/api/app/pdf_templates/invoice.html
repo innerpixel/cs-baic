@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block body %}
+
+<div class="doc-title">{{ doc.title }}</div>
+<div class="doc-meta">
+  <span>Nr.: <strong>{{ doc.invoice_no }}</strong></span>
+  <span>Data emiterii: {{ doc.issue_date }}</span>
+  <span>Scadență: {{ doc.due_date }}</span>
+</div>
+
+<div class="parties">
+  <div class="party">
+    <div class="party-role">Furnizor</div>
+    <div class="party-name">{{ issuer.name }}</div>
+    <div>CUI: {{ issuer.cui }}</div>
+    <div>{{ issuer.address }}</div>
+    {% if issuer.iban %}<div>IBAN: {{ issuer.iban }}</div>{% endif %}
+    <div>{{ issuer.email }}</div>
+  </div>
+  <div class="party">
+    <div class="party-role">Client</div>
+    <div class="party-name">{{ client.name }}</div>
+    <div>CUI: {{ client.cui }}</div>
+    <div>{{ client.address }}</div>
+    {% if client.iban %}<div>IBAN: {{ client.iban }}</div>{% endif %}
+  </div>
+</div>
+
+<table class="line-items">
+  <thead>
+    <tr>
+      <th>Descriere</th>
+      <th class="right">Cantitate</th>
+      <th class="right">Preț unitar (RON)</th>
+      <th class="right">TVA (19%)</th>
+      <th class="right">Total (RON)</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for item in doc.line_items %}
+    <tr>
+      <td>{{ item.description }}</td>
+      <td class="right">{{ item.qty }}</td>
+      <td class="right">{{ "%.2f"|format(item.unit_price) }}</td>
+      <td class="right">{{ "%.2f"|format(item.unit_price * item.qty * 0.19) }}</td>
+      <td class="right">{{ "%.2f"|format(item.unit_price * item.qty * 1.19) }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<div class="totals-box">
+  <div class="totals-row">
+    <span>Subtotal</span>
+    <span>{{ "%.2f"|format(doc.subtotal) }} RON</span>
+  </div>
+  <div class="totals-row">
+    <span>TVA (19%)</span>
+    <span>{{ "%.2f"|format(doc.vat) }} RON</span>
+  </div>
+  <div class="totals-row">
+    <span>Total de plată</span>
+    <span>{{ "%.2f"|format(doc.total) }} RON</span>
+  </div>
+</div>
+
+{% if doc.notes %}
+<div class="payment-note">{{ doc.notes }}</div>
+{% endif %}
+
+{% endblock %}
